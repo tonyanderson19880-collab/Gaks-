@@ -133,6 +133,35 @@ export const WalletPage: React.FC<WalletPageProps> = ({ onNavigate }) => {
               <ArrowUpRight className="w-4 h-4" />
             </button>
           </div>
+
+          <div className="pt-6 border-t border-purple-500/40 mt-6 grid grid-cols-3 gap-2 text-left">
+            <div>
+              <span className="text-[11px] font-semibold text-purple-200 block uppercase">
+                Pending Balance
+              </span>
+              <span className="text-sm sm:text-base font-extrabold text-white mt-0.5 block">
+                ₦{(wallet?.pending_balance ?? wallet?.pending_rewards ?? 0).toFixed(2)}
+              </span>
+            </div>
+
+            <div>
+              <span className="text-[11px] font-semibold text-purple-200 block uppercase">
+                Total Earned
+              </span>
+              <span className="text-sm sm:text-base font-extrabold text-[#B8F500] mt-0.5 block">
+                ₦{(wallet?.total_earned ?? 0).toFixed(2)}
+              </span>
+            </div>
+
+            <div>
+              <span className="text-[11px] font-semibold text-purple-200 block uppercase">
+                Total Withdrawn
+              </span>
+              <span className="text-sm sm:text-base font-extrabold text-white mt-0.5 block">
+                ₦{(wallet?.total_withdrawn ?? 0).toFixed(2)}
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Transaction History Section */}

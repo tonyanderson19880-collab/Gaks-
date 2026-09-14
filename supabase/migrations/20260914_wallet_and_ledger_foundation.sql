@@ -144,7 +144,7 @@ CREATE TABLE IF NOT EXISTS public.referrals (
 -- ==============================================================================
 CREATE TABLE IF NOT EXISTS public.reward_sessions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  user_id REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   opportunity_id TEXT NOT NULL,
   provider TEXT NOT NULL,
   expected_amount NUMERIC(12, 2) NOT NULL,
@@ -159,7 +159,7 @@ CREATE TABLE IF NOT EXISTS public.reward_sessions (
 
 CREATE TABLE IF NOT EXISTS public.reward_events (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  user_id REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   session_id UUID REFERENCES public.reward_sessions(id) ON DELETE CASCADE,
   event_type TEXT NOT NULL,
   provider TEXT NOT NULL,
@@ -173,7 +173,7 @@ CREATE TABLE IF NOT EXISTS public.reward_events (
 -- ==============================================================================
 CREATE TABLE IF NOT EXISTS public.notifications (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  user_id REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
   message TEXT NOT NULL,
   type TEXT DEFAULT 'system' NOT NULL CHECK (type IN ('system', 'reward', 'withdrawal', 'referral', 'security')),
@@ -184,7 +184,7 @@ CREATE TABLE IF NOT EXISTS public.notifications (
 
 CREATE TABLE IF NOT EXISTS public.audit_logs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  user_id REFERENCES auth.users(id) ON DELETE SET NULL,
   action TEXT NOT NULL,
   entity_type TEXT NOT NULL,
   entity_id TEXT,

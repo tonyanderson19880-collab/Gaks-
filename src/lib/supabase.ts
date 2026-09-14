@@ -199,8 +199,10 @@ export const createDefaultProfileFromUser = (
     `SE-${sbUser.id.replace(/-/g, '').slice(0, 6).toUpperCase()}`;
 
   return {
+    id: sbUser.id,
     user_id: sbUser.id,
     full_name: rawName,
+    email: sbUser.email || overrides?.email,
     avatar_initials: initials,
     country: overrides?.country || 'Nigeria',
     preferred_payment_method: overrides?.preferred_payment_method || 'bank_transfer',
@@ -208,7 +210,8 @@ export const createDefaultProfileFromUser = (
     account_number: overrides?.account_number,
     account_name: overrides?.account_name,
     referral_code: refCode,
-    referred_by: overrides?.referred_by || sbUser.user_metadata?.referred_by,
+    referred_by: overrides?.referred_by || sbUser.user_metadata?.referred_by || null,
+    account_status: overrides?.account_status || 'active',
     email_notifications: true,
     reward_alerts: true,
     created_at: sbUser.created_at,
@@ -223,6 +226,7 @@ export const createDefaultWalletFromUser = (userId: string): Wallet => {
   return {
     user_id: userId,
     available_balance: 0.0,
+    pending_balance: 0.0,
     pending_rewards: 0.0,
     total_earned: 0.0,
     total_withdrawn: 0.0,
@@ -260,8 +264,10 @@ export const fetchSupabaseProfileAndWallet = async (
 
     let profile: Profile | null = profileData
       ? {
-          user_id: profileData.id || profileData.user_id,
+          id: profileData.id,
+          user_id: profileData.user_id || profileData.id,
           full_name: profileData.full_name || 'Swift Earner',
+          email: profileData.email || sbUser?.email,
           avatar_initials: profileData.avatar_initials || 'SE',
           phone: profileData.phone,
           country: profileData.country || 'Nigeria',
@@ -271,6 +277,7 @@ export const fetchSupabaseProfileAndWallet = async (
           account_name: profileData.account_name,
           referral_code: profileData.referral_code,
           referred_by: profileData.referred_by,
+          account_status: profileData.account_status || 'active',
           email_notifications: profileData.email_notifications ?? true,
           reward_alerts: profileData.reward_alerts ?? true,
           created_at: profileData.created_at || new Date().toISOString(),
@@ -280,12 +287,15 @@ export const fetchSupabaseProfileAndWallet = async (
 
     let wallet: Wallet | null = walletData
       ? {
+          id: walletData.id,
           user_id: walletData.user_id,
           available_balance: Number(walletData.available_balance || 0),
-          pending_rewards: Number(walletData.pending_rewards || 0),
+          pending_balance: Number(walletData.pending_balance ?? walletData.pending_rewards ?? 0),
+          pending_rewards: Number(walletData.pending_rewards ?? walletData.pending_balance ?? 0),
           total_earned: Number(walletData.total_earned || 0),
           total_withdrawn: Number(walletData.total_withdrawn || 0),
           currency: walletData.currency || 'NGN',
+          created_at: walletData.created_at,
           updated_at: walletData.updated_at || new Date().toISOString(),
         }
       : null;
@@ -330,13 +340,17 @@ export const supabaseDb = {
       return (data || []).map((row: any) => ({
         id: row.id,
         user_id: row.user_id,
-        entry_type: row.entry_type,
+        type: row.type || (row.amount > 0 ? 'reward' : 'withdrawal'),
+        entry_type: row.entry_type || (row.amount > 0 ? 'reward_credit' : 'withdrawal_debit'),
         amount: Number(row.amount),
-        running_balance: Number(row.running_balance),
+        running_balance: Number(row.running_balance || 0),
         status: row.status,
+        reference_type: row.reference_type,
+        reference_id: row.reference_id,
         reference: row.reference,
         description: row.description,
         idempotency_key: row.idempotency_key,
+        metadata: row.metadata,
         created_at: row.created_at,
       }));
     } catch (err) {

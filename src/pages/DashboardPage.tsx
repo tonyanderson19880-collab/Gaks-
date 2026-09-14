@@ -137,7 +137,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   Pending Rewards
                 </span>
                 <span className="text-sm sm:text-base font-extrabold text-white mt-0.5 block">
-                  ₦{wallet?.pending_rewards.toFixed(2) || '0.00'}
+                  ₦{(wallet?.pending_balance ?? wallet?.pending_rewards ?? 0).toFixed(2)}
                 </span>
               </div>
 

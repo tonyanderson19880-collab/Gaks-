@@ -177,12 +177,15 @@ export const api = {
       if (!data) return { wallet: null };
       return {
         wallet: {
+          id: data.id,
           user_id: data.user_id,
           available_balance: Number(data.available_balance || 0),
-          pending_rewards: Number(data.pending_rewards || 0),
+          pending_balance: Number(data.pending_balance ?? data.pending_rewards ?? 0),
+          pending_rewards: Number(data.pending_rewards ?? data.pending_balance ?? 0),
           total_earned: Number(data.total_earned || 0),
           total_withdrawn: Number(data.total_withdrawn || 0),
           currency: data.currency || 'NGN',
+          created_at: data.created_at,
           updated_at: data.updated_at,
         },
       };

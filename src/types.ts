@@ -7,30 +7,36 @@ export interface User {
 }
 
 export interface Profile {
+  id?: string;
   user_id: string;
   full_name: string;
-  avatar_initials: string;
+  email?: string;
+  avatar_initials?: string;
   phone?: string;
-  country: string;
-  preferred_payment_method: 'bank_transfer' | 'fintech_wallet';
+  country?: string;
+  preferred_payment_method?: 'bank_transfer' | 'fintech_wallet';
   bank_name?: string;
   account_number?: string;
   account_name?: string;
-  referral_code?: string;
-  referred_by?: string;
-  email_notifications: boolean;
-  reward_alerts: boolean;
+  referral_code: string;
+  referred_by?: string | null;
+  account_status?: 'active' | 'suspended' | 'flagged' | 'pending_verification';
+  email_notifications?: boolean;
+  reward_alerts?: boolean;
   created_at: string;
   updated_at: string;
 }
 
 export interface Wallet {
+  id?: string;
   user_id: string;
   available_balance: number;
-  pending_rewards: number;
+  pending_balance: number;
+  pending_rewards?: number;
   total_earned: number;
   total_withdrawn: number;
   currency: string;
+  created_at?: string;
   updated_at: string;
 }
 
@@ -51,13 +57,17 @@ export interface RewardOpportunity {
 export interface LedgerEntry {
   id: string;
   user_id: string;
-  entry_type: 'reward_credit' | 'withdrawal_debit' | 'withdrawal_reversal' | 'referral_bonus' | 'admin_adjustment';
+  type: 'reward' | 'referral' | 'withdrawal' | 'reversal' | 'adjustment' | 'reward_credit' | 'withdrawal_debit' | 'referral_bonus';
+  entry_type?: string;
   amount: number;
-  running_balance: number;
-  status: 'confirmed' | 'pending' | 'cancelled';
-  reference: string;
+  running_balance?: number;
+  status: 'confirmed' | 'pending' | 'reversed' | 'cancelled';
+  reference_type?: string;
+  reference_id?: string;
+  reference?: string;
   description: string;
   idempotency_key?: string;
+  metadata?: any;
   created_at: string;
 }
 
