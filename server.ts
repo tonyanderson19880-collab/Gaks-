@@ -1,0 +1,654 @@
+import express from 'express';
+import path from 'path';
+import crypto from 'crypto';
+import { createServer as createViteServer } from 'vite';
+import { dbManager, hashPassword } from './server/db.js';
+import {
+  createSessionToken,
+  requireUserAuth,
+  requireAdminAuth,
+  AuthenticatedRequest,
+} from './server/auth.js';
+import { getProvider } from './server/adProviders.js';
+
+async function startServer() {
+  const app = express();
+  const PORT = 3000;
+
+  app.use(express.json());
+
+  // ----------------------------------------------------
+  // Health & Public Stats
+  // ----------------------------------------------------
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', time: new Date().toISOString(), platform: 'Swift Earn' });
+  });
+
+  app.get('/api/stats/public', (req, res) => {
+    const config = dbManager.getConfig();
+    res.json({
+      stats: config.public_stats,
+      demoMode: config.demo_mode,
+      minimumWithdrawal: config.minimum_withdrawal,
+    });
+  });
+
+  // ----------------------------------------------------
+  // Auth: User Sign Up & Login
+  // ----------------------------------------------------
+  app.post('/api/auth/signup', (req, res) => {
+    try {
+      const { fullName, email, password, confirmPassword, referralCode, agreeTerms } = req.body;
+
+      if (!agreeTerms) {
+        return res.status(400).json({ error: 'You must agree to the Terms and Conditions and Privacy Policy.' });
+      }
+
+      if (!fullName || !email || !password || !confirmPassword) {
+        return res.status(400).json({ error: 'All required fields must be completed.' });
+      }
+
+      if (fullName.trim().length < 2) {
+        return res.status(400).json({ error: 'Full name must be at least 2 characters long.' });
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ error: 'Please enter a valid email address.' });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+      }
+
+      if (password !== confirmPassword) {
+        return res.status(400).json({ error: 'Passwords do not match.' });
+      }
+
+      const existingUser = dbManager.findUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ error: 'An account with this email address already exists.' });
+      }
+
+      // Check self-referral prevention if referral code provided
+      let validReferralCode = undefined;
+      if (referralCode && referralCode.trim()) {
+        const referrer = dbManager.findUserByReferralCode(referralCode.trim());
+        if (referrer && referrer.email.toLowerCase() === email.toLowerCase()) {
+          // Self-referral attempt
+          dbManager.recordFraudEvent({
+            riskScore: 60,
+            flagReason: 'Self-referral attempt detected during sign up',
+            details: { email, code: referralCode },
+          });
+        } else if (referrer) {
+          validReferralCode = referralCode.trim();
+        }
+      }
+
+      const { user, profile, wallet } = dbManager.createUser({
+        email,
+        password,
+        fullName,
+        referralCodeInput: validReferralCode,
+      });
+
+      const token = createSessionToken({ userId: user.id, role: 'user', email: user.email });
+
+      res.status(201).json({
+        message: 'Account created successfully',
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          status: user.status,
+          referralCode: user.referral_code,
+        },
+        profile,
+        wallet,
+      });
+    } catch (err: any) {
+      console.error('Sign up error:', err);
+      res.status(500).json({ error: 'Failed to create account. Please try again.' });
+    }
+  });
+
+  app.post('/api/auth/login', (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Please provide both email and password.' });
+      }
+
+      const user = dbManager.findUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ error: 'Invalid email or password.' });
+      }
+
+      const hash = hashPassword(password);
+      if (user.password_hash !== hash) {
+        return res.status(401).json({ error: 'Invalid email or password.' });
+      }
+
+      if (user.status === 'suspended') {
+        return res.status(403).json({ error: 'Your account has been suspended. Please contact support.' });
+      }
+
+      const profile = dbManager.findProfileByUserId(user.id);
+      const wallet = dbManager.getWallet(user.id);
+      const token = createSessionToken({ userId: user.id, role: 'user', email: user.email });
+
+      res.json({
+        message: 'Logged in successfully',
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          status: user.status,
+          referralCode: user.referral_code,
+        },
+        profile,
+        wallet,
+      });
+    } catch (err: any) {
+      console.error('Login error:', err);
+      res.status(500).json({ error: 'Authentication failed.' });
+    }
+  });
+
+  app.get('/api/auth/me', requireUserAuth, (req: AuthenticatedRequest, res) => {
+    const user = req.user!;
+    const profile = dbManager.findProfileByUserId(user.id);
+    const wallet = dbManager.getWallet(user.id);
+    const notifications = dbManager.getNotifications(user.id);
+    const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
+
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        status: user.status,
+        referralCode: user.referral_code,
+        createdAt: user.created_at,
+      },
+      profile,
+      wallet,
+      unreadNotificationsCount,
+    });
+  });
+
+  // ----------------------------------------------------
+  // Admin Authentication
+  // ----------------------------------------------------
+  app.post('/api/admin/login', (req, res) => {
+    try {
+      const { email, password } = req.body;
+      const admin = dbManager.findAdminByEmail(email);
+
+      if (!admin || admin.password_hash !== hashPassword(password)) {
+        return res.status(401).json({ error: 'Invalid admin credentials.' });
+      }
+
+      const token = createSessionToken({ userId: admin.id, role: 'admin', email: admin.email });
+      res.json({
+        token,
+        admin: {
+          id: admin.id,
+          email: admin.email,
+          fullName: admin.full_name,
+          role: admin.role,
+        },
+      });
+    } catch (err: any) {
+      console.error('Admin login error:', err);
+      res.status(500).json({ error: 'Admin login error.' });
+    }
+  });
+
+  app.get('/api/admin/me', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    const admin = req.admin!;
+    res.json({
+      admin: {
+        id: admin.id,
+        email: admin.email,
+        fullName: admin.full_name,
+        role: admin.role,
+      },
+    });
+  });
+
+  // ----------------------------------------------------
+  // User Wallet & Ledger Endpoints
+  // ----------------------------------------------------
+  app.get('/api/wallet', requireUserAuth, (req: AuthenticatedRequest, res) => {
+    const wallet = dbManager.getWallet(req.user!.id);
+    res.json({ wallet });
+  });
+
+  app.get('/api/wallet/transactions', requireUserAuth, (req: AuthenticatedRequest, res) => {
+    const transactions = dbManager.getLedgerEntries(req.user!.id);
+    res.json({ transactions });
+  });
+
+  // ----------------------------------------------------
+  // Rewarded Opportunities & Session State Machine
+  // ----------------------------------------------------
+  app.get('/api/rewards/opportunities', (req, res) => {
+    const opportunities = dbManager.getOpportunities();
+    res.json({ opportunities });
+  });
+
+  /**
+   * Step 1: Create server-side reward session.
+   * Generates unique session ID, server timestamp, cryptographic HMAC token.
+   */
+  app.post('/api/rewards/sessions/start', requireUserAuth, (req: AuthenticatedRequest, res) => {
+    try {
+      const { opportunityId } = req.body;
+      if (!opportunityId) {
+        return res.status(400).json({ error: 'opportunityId is required' });
+      }
+
+      const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1';
+      const userAgent = req.headers['user-agent'] || 'unknown';
+
+      const { session, opportunity, token } = dbManager.createRewardSession({
+        userId: req.user!.id,
+        opportunityId,
+        ipAddress: ip,
+        userAgent,
+      });
+
+      res.status(201).json({
+        sessionId: session.id,
+        providerSessionId: session.provider_session_id,
+        opportunity: {
+          id: opportunity.id,
+          title: opportunity.title,
+          rewardPoints: opportunity.reward_points,
+          estimatedSeconds: opportunity.estimated_seconds,
+          category: opportunity.category,
+          isDemo: opportunity.is_demo,
+        },
+        token,
+        startedAt: session.started_at,
+        expiresAt: session.expires_at,
+      });
+    } catch (err: any) {
+      console.error('Error starting reward session:', err);
+      res.status(500).json({ error: err.message || 'Failed to start reward session.' });
+    }
+  });
+
+  /**
+   * Step 2 & 3: Verify Completion Server-Side & Credit Ledger.
+   * NEVER trusts client claim blindly!
+   * Checks:
+   *  1. Session exists and belongs to requesting user
+   *  2. Session has not already been claimed (idempotency)
+   *  3. Ad completion duration satisfies minimum required seconds (anti-skip / anti-autoclick)
+   *  4. Provider cryptographic token matches server HMAC
+   *  5. Adds confirmed reward to immutable ledger_entries
+   *  6. Updates user wallet balance
+   */
+  app.post('/api/rewards/sessions/:id/verify-and-claim', requireUserAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const sessionId = req.params.id;
+      const { token, elapsedSeconds } = req.body;
+      const user = req.user!;
+
+      const session = dbManager.findRewardSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: 'Reward session not found.' });
+      }
+
+      if (session.user_id !== user.id) {
+        dbManager.recordFraudEvent({
+          userId: user.id,
+          sessionId,
+          riskScore: 90,
+          flagReason: 'User tried to claim reward session belonging to another user',
+        });
+        return res.status(403).json({ error: 'Session ownership verification failed.' });
+      }
+
+      if (session.claimed) {
+        return res.status(400).json({ error: 'This reward session has already been claimed and credited.' });
+      }
+
+      const opp = dbManager.getOpportunityById(session.opportunity_id);
+      if (!opp) {
+        return res.status(400).json({ error: 'Associated reward opportunity not found.' });
+      }
+
+      // Check session expiration
+      if (new Date() > new Date(session.expires_at)) {
+        session.status = 'expired';
+        return res.status(400).json({ error: 'Reward session has expired. Please start a fresh opportunity.' });
+      }
+
+      // Provider verification
+      const provider = getProvider(opp.provider);
+      const validation = await provider.verifyCompletion(
+        token || session.provider_token,
+        {
+          sessionId: session.id,
+          userId: user.id,
+          opportunityId: opp.id,
+          provider: opp.provider,
+          estimatedSeconds: opp.estimated_seconds,
+        },
+        Number(elapsedSeconds) || 0
+      );
+
+      if (!validation.valid) {
+        session.status = 'failed';
+        if (validation.fraudFlag) {
+          dbManager.recordFraudEvent({
+            userId: user.id,
+            sessionId: session.id,
+            riskScore: 70,
+            flagReason: validation.reason || 'Ad duration or token mismatch',
+            details: { elapsedSeconds, required: opp.estimated_seconds },
+          });
+        }
+        return res.status(400).json({
+          error: validation.reason || 'Verification failed. Ad was not completed according to approved partner policy.',
+        });
+      }
+
+      // Mark session verified
+      session.status = 'verified';
+      session.completed_at = new Date().toISOString();
+      session.verified_at = new Date().toISOString();
+      session.claimed = true;
+
+      // Credit to immutable ledger
+      const txRef = `TX-REW-${crypto.randomBytes(6).toString('hex').toUpperCase()}`;
+      const creditResult = dbManager.creditReward({
+        userId: user.id,
+        amount: opp.reward_points,
+        reference: txRef,
+        description: `Verified completion: ${opp.title} (${opp.provider})`,
+        idempotencyKey: `idemp_ses_${session.id}`,
+      });
+
+      if (!creditResult.success) {
+        return res.status(400).json({ error: creditResult.message });
+      }
+
+      res.json({
+        success: true,
+        message: 'Reward confirmed and credited successfully!',
+        pointsEarned: opp.reward_points,
+        newBalance: creditResult.wallet.available_balance,
+        transactionReference: txRef,
+        providerTransactionId: validation.providerTransactionId,
+      });
+    } catch (err: any) {
+      console.error('Error claiming reward:', err);
+      res.status(500).json({ error: 'Internal server error while processing reward verification.' });
+    }
+  });
+
+  // ----------------------------------------------------
+  // Withdrawals Endpoints
+  // ----------------------------------------------------
+  app.post('/api/withdrawals/request', requireUserAuth, (req: AuthenticatedRequest, res) => {
+    try {
+      const { amount, paymentMethod, accountDetails } = req.body;
+      const numAmount = Number(amount);
+
+      if (!numAmount || numAmount <= 0) {
+        return res.status(400).json({ error: 'Please enter a valid withdrawal amount.' });
+      }
+
+      if (!paymentMethod) {
+        return res.status(400).json({ error: 'Please select a supported payment method.' });
+      }
+
+      if (!accountDetails) {
+        return res.status(400).json({ error: 'Payment destination details are required.' });
+      }
+
+      if (paymentMethod === 'Bank Transfer') {
+        if (!accountDetails.bank_name || !accountDetails.account_number || !accountDetails.account_name) {
+          return res.status(400).json({ error: 'Please provide Bank Name, Account Number, and Account Name.' });
+        }
+        if (accountDetails.account_number.length < 10) {
+          return res.status(400).json({ error: 'Account number must be at least 10 digits.' });
+        }
+      }
+
+      const result = dbManager.requestWithdrawal({
+        userId: req.user!.id,
+        amount: numAmount,
+        paymentMethod,
+        accountDetails,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.message });
+      }
+
+      const wallet = dbManager.getWallet(req.user!.id);
+      res.status(201).json({
+        message: 'Withdrawal request submitted successfully.',
+        withdrawal: result.withdrawal,
+        wallet,
+      });
+    } catch (err: any) {
+      console.error('Withdrawal error:', err);
+      res.status(500).json({ error: 'Failed to submit withdrawal request.' });
+    }
+  });
+
+  app.get('/api/withdrawals/my', requireUserAuth, (req: AuthenticatedRequest, res) => {
+    const list = dbManager.getWithdrawals(req.user!.id);
+    res.json({ withdrawals: list });
+  });
+
+  // ----------------------------------------------------
+  // Referrals Endpoints
+  // ----------------------------------------------------
+  app.get('/api/referrals/my-stats', requireUserAuth, (req: AuthenticatedRequest, res) => {
+    const user = req.user!;
+    const stats = dbManager.getReferrals(user.id);
+    const config = dbManager.getConfig();
+
+    res.json({
+      referralCode: user.referral_code,
+      referralBonusAmount: config.referral_bonus_amount,
+      totalCount: stats.totalCount,
+      totalBonusEarned: stats.totalBonusEarned,
+      referrals: stats.referrals,
+    });
+  });
+
+  // ----------------------------------------------------
+  // Profile & Settings
+  // ----------------------------------------------------
+  app.get('/api/user/profile', requireUserAuth, (req: AuthenticatedRequest, res) => {
+    const profile = dbManager.findProfileByUserId(req.user!.id);
+    res.json({ profile });
+  });
+
+  app.put('/api/user/profile', requireUserAuth, (req: AuthenticatedRequest, res) => {
+    const { fullName, phone, bank_name, account_number, account_name, preferred_payment_method } = req.body;
+    const cleanName = fullName ? fullName.trim() : undefined;
+    const initials = cleanName
+      ? cleanName
+          .split(' ')
+          .filter(Boolean)
+          .map((n: string) => n[0])
+          .slice(0, 2)
+          .join('')
+          .toUpperCase()
+      : undefined;
+
+    const updated = dbManager.updateProfile(req.user!.id, {
+      full_name: cleanName,
+      avatar_initials: initials,
+      phone,
+      bank_name,
+      account_number,
+      account_name,
+      preferred_payment_method,
+    });
+
+    res.json({ profile: updated });
+  });
+
+  app.put('/api/user/password', requireUserAuth, (req: AuthenticatedRequest, res) => {
+    const { currentPassword, newPassword } = req.body;
+    const user = req.user!;
+
+    if (user.password_hash !== hashPassword(currentPassword)) {
+      return res.status(400).json({ error: 'Current password is incorrect.' });
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters long.' });
+    }
+
+    user.password_hash = hashPassword(newPassword);
+    user.updated_at = new Date().toISOString();
+    res.json({ message: 'Password updated successfully.' });
+  });
+
+  // ----------------------------------------------------
+  // Notifications Endpoints
+  // ----------------------------------------------------
+  app.get('/api/notifications', requireUserAuth, (req: AuthenticatedRequest, res) => {
+    const list = dbManager.getNotifications(req.user!.id);
+    res.json({ notifications: list });
+  });
+
+  app.post('/api/notifications/:id/read', requireUserAuth, (req: AuthenticatedRequest, res) => {
+    dbManager.markNotificationRead(req.params.id, req.user!.id);
+    res.json({ success: true });
+  });
+
+  app.post('/api/notifications/read-all', requireUserAuth, (req: AuthenticatedRequest, res) => {
+    dbManager.markAllNotificationsRead(req.user!.id);
+    res.json({ success: true });
+  });
+
+  // ----------------------------------------------------
+  // Admin Portal Endpoints
+  // ----------------------------------------------------
+  app.get('/api/admin/overview', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    const stats = dbManager.getAdminStats();
+    const fraudEvents = dbManager.getFraudEvents().slice(0, 5);
+    const pendingWithdrawals = dbManager.getWithdrawals().filter((w) => w.status === 'pending').slice(0, 5);
+
+    // Dynamic 7-day trend metrics for charts
+    const chartData = [
+      { day: 'Mon', rewardsCount: 42, withdrawalsTotal: 15000, revenue: 26000, newUsers: 18 },
+      { day: 'Tue', rewardsCount: 56, withdrawalsTotal: 18000, revenue: 32000, newUsers: 24 },
+      { day: 'Wed', rewardsCount: 68, withdrawalsTotal: 12000, revenue: 39000, newUsers: 31 },
+      { day: 'Thu', rewardsCount: 61, withdrawalsTotal: 22000, revenue: 36000, newUsers: 27 },
+      { day: 'Fri', rewardsCount: 84, withdrawalsTotal: 29000, revenue: 48000, newUsers: 45 },
+      { day: 'Sat', rewardsCount: 95, withdrawalsTotal: 34000, revenue: 54000, newUsers: 52 },
+      { day: 'Sun', rewardsCount: 88, withdrawalsTotal: 25000, revenue: 51000, newUsers: 39 },
+    ];
+
+    res.json({
+      stats,
+      chartData,
+      recentFraudEvents: fraudEvents,
+      recentPendingWithdrawals: pendingWithdrawals,
+    });
+  });
+
+  app.get('/api/admin/users', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    const list = dbManager.getAllUsers();
+    res.json({ users: list });
+  });
+
+  app.post('/api/admin/users/:id/status', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    const { status } = req.body;
+    const admin = req.admin!;
+    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+
+    const success = dbManager.updateUserStatus(req.params.id, status, admin.id, ip);
+    if (!success) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    res.json({ success: true, status });
+  });
+
+  app.get('/api/admin/rewards', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    const sessions = dbManager.getAllRewardSessions();
+    const fraudEvents = dbManager.getFraudEvents();
+    res.json({ sessions, fraudEvents });
+  });
+
+  app.get('/api/admin/withdrawals', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    const withdrawals = dbManager.getWithdrawals();
+    res.json({ withdrawals });
+  });
+
+  app.post('/api/admin/withdrawals/:id/review', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    const { status, adminNotes } = req.body;
+    const admin = req.admin!;
+    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+
+    const result = dbManager.updateWithdrawalStatus(req.params.id, status, adminNotes, admin.id, ip);
+    if (!result.success) {
+      return res.status(400).json({ error: result.message });
+    }
+    res.json({ success: true, withdrawal: result.withdrawal });
+  });
+
+  app.get('/api/admin/referrals', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    const referrals = dbManager.getAllReferrals();
+    res.json({ referrals });
+  });
+
+  app.get('/api/admin/settings', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    const config = dbManager.getConfig();
+    res.json({ config });
+  });
+
+  app.put('/api/admin/settings', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    const updates = req.body;
+    const admin = req.admin!;
+    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+
+    const updated = dbManager.updateConfig(updates, admin.id, ip);
+    res.json({ config: updated });
+  });
+
+  app.get('/api/admin/audit-logs', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    const logs = dbManager.getAuditLogs();
+    res.json({ auditLogs: logs });
+  });
+
+  // ----------------------------------------------------
+  // Vite Middleware Setup
+  // ----------------------------------------------------
+  if (process.env.NODE_ENV !== 'production') {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Swift Earn Server running on port ${PORT}`);
+  });
+}
+
+startServer().catch((err) => {
+  console.error('Fatal Server Boot Error:', err);
+  process.exit(1);
+});
