@@ -84,55 +84,75 @@ async function request<T>(url: string, options: RequestInit = {}, isAdmin = fals
 // Built-in verified partner opportunities for direct engagement
 const FALLBACK_OPPORTUNITIES: RewardOpportunity[] = [
   {
-    id: 'opp-flutterwave-2025',
-    title: 'Flutterwave Merchant Growth Survey',
-    provider: 'Flutterwave',
-    category: 'survey',
-    reward_points: 150,
-    estimated_seconds: 45,
-    description: 'Provide quick feedback on digital payment experiences across West Africa.',
-    is_demo: false,
-    active: true,
-    daily_cap: 3,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'opp-piggyvest-save',
-    title: 'Piggyvest Financial Wellness Tour',
-    provider: 'Piggyvest',
-    category: 'sponsored_task',
-    reward_points: 75,
-    estimated_seconds: 30,
-    description: 'Explore automated micro-savings and investment tools designed for young earners.',
-    is_demo: false,
-    active: true,
-    daily_cap: 5,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'opp-mtn-momo',
-    title: 'MTN MoMo Digital Wallet Interactive Demo',
-    provider: 'MTN MoMo',
+    id: 'opp_demo_vid_01',
+    name: 'Demo Rewarded Video',
+    title: 'Demo Rewarded Video',
+    provider: 'Demo',
     category: 'video',
-    reward_points: 120,
-    estimated_seconds: 35,
-    description: 'Watch an interactive overview of instant mobile money payments across Nigeria.',
-    is_demo: false,
+    reward_amount: 10,
+    reward_points: 10,
+    estimated_duration: 30,
+    estimated_seconds: 30,
+    daily_limit: 10,
+    daily_cap: 10,
+    status: 'active',
+    description: 'Simulate watching a 30-second rewarded sponsor video to completion.',
+    is_demo: true,
     active: true,
-    daily_cap: 4,
     created_at: new Date().toISOString(),
   },
   {
-    id: 'opp-opay-daily',
-    title: 'OPay Cashback & Merchant Features',
-    provider: 'OPay',
-    category: 'survey',
-    reward_points: 90,
-    estimated_seconds: 25,
-    description: 'Discover new fee-free transfers, bill payments, and smart wallet daily rewards.',
-    is_demo: false,
+    id: 'opp_demo_vid_02',
+    name: 'Demo Quick Clip',
+    title: 'Demo Quick Clip',
+    provider: 'Demo',
+    category: 'video',
+    reward_amount: 5,
+    reward_points: 5,
+    estimated_duration: 15,
+    estimated_seconds: 15,
+    daily_limit: 15,
+    daily_cap: 15,
+    status: 'active',
+    description: 'Watch a fast 15-second sponsor demonstration clip for rapid reward testing.',
+    is_demo: true,
     active: true,
-    daily_cap: 3,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'opp_demo_survey_01',
+    name: 'Demo Interactive Survey',
+    title: 'Demo Interactive Survey',
+    provider: 'Demo',
+    category: 'survey',
+    reward_amount: 15,
+    reward_points: 15,
+    estimated_duration: 45,
+    estimated_seconds: 45,
+    daily_limit: 5,
+    daily_cap: 5,
+    status: 'active',
+    description: 'Simulate completing an interactive brand feedback survey for bonus points.',
+    is_demo: true,
+    active: true,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'opp_demo_app_01',
+    name: 'Demo App Engagement',
+    title: 'Demo App Engagement',
+    provider: 'Demo',
+    category: 'app_trial',
+    reward_amount: 20,
+    reward_points: 20,
+    estimated_duration: 60,
+    estimated_seconds: 60,
+    daily_limit: 5,
+    daily_cap: 5,
+    status: 'active',
+    description: 'Simulate testing a partner mobile product and claim verified test points.',
+    is_demo: true,
+    active: true,
     created_at: new Date().toISOString(),
   },
 ];
@@ -268,6 +288,7 @@ export const api = {
 
     return request<{
       sessionId: string;
+      userId?: string;
       providerSessionId: string;
       opportunity: any;
       token: string;
@@ -281,7 +302,15 @@ export const api = {
 
   verifyAndClaimReward: async (
     sessionId: string,
-    body: { token: string; elapsedSeconds: number; opportunityId?: string; provider?: string; title?: string; amount?: number }
+    body: {
+      token?: string;
+      idempotencyKey?: string;
+      elapsedSeconds: number;
+      opportunityId?: string;
+      provider?: string;
+      title?: string;
+      amount?: number;
+    }
   ): Promise<{
     success: boolean;
     message: string;
@@ -526,7 +555,41 @@ export const api = {
       },
       true
     ),
-  getAdminRewards: () => request<{ sessions: any[]; fraudEvents: any[] }>('/api/admin/rewards', {}, true),
+  getAdminRewards: () =>
+    request<{ sessions: any[]; fraudEvents: any[]; opportunities?: RewardOpportunity[] }>(
+      '/api/admin/rewards',
+      {},
+      true
+    ),
+  getAdminRewardOpportunities: () =>
+    request<{ opportunities: RewardOpportunity[] }>('/api/admin/rewards/opportunities', {}, true),
+  createAdminRewardOpportunity: (body: Partial<RewardOpportunity>) =>
+    request<{ success: boolean; opportunity: RewardOpportunity }>(
+      '/api/admin/rewards/opportunities',
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+      true
+    ),
+  updateAdminRewardOpportunity: (id: string, body: Partial<RewardOpportunity>) =>
+    request<{ success: boolean; opportunity: RewardOpportunity }>(
+      `/api/admin/rewards/opportunities/${id}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      },
+      true
+    ),
+  toggleAdminRewardOpportunity: (id: string) =>
+    request<{ success: boolean; opportunity: RewardOpportunity }>(
+      `/api/admin/rewards/opportunities/${id}/toggle`,
+      {
+        method: 'PATCH',
+      },
+      true
+    ),
+  getAdminFraudEvents: () => request<{ fraudEvents: any[] }>('/api/admin/fraud-events', {}, true),
   getAdminWithdrawals: () => request<{ withdrawals: Withdrawal[] }>('/api/admin/withdrawals', {}, true),
   reviewWithdrawal: (id: string, body: { status: string; adminNotes: string }) =>
     request<{ success: boolean; withdrawal: Withdrawal }>(

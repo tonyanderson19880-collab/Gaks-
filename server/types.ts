@@ -37,16 +37,22 @@ export interface Wallet {
 
 export interface RewardOpportunity {
   id: string;
+  name?: string;
   title: string;
   description: string;
-  category: 'video' | 'survey' | 'app_trial' | 'sponsored_task';
+  category?: 'video' | 'survey' | 'app_trial' | 'sponsored_task';
   reward_points: number;
+  reward_amount?: number;
   estimated_seconds: number;
+  estimated_duration?: number;
   provider: string;
   is_demo: boolean;
   active: boolean;
+  status?: 'active' | 'inactive' | 'archived';
   daily_cap: number;
+  daily_limit?: number;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface RewardSession {

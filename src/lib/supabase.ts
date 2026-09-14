@@ -522,6 +522,91 @@ export const supabaseDb = {
     return data;
   },
 
+  // 6.1 Get Active Reward Opportunities from Supabase
+  async getRewardOpportunities(): Promise<any[]> {
+    const sb = getSupabaseClient();
+    if (!sb) return [];
+    try {
+      const { data, error } = await sb
+        .from('reward_opportunities')
+        .select('*')
+        .order('reward_amount', { ascending: false });
+
+      if (error) throw error;
+      return (data || []).map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        title: row.name,
+        description: row.description,
+        reward_amount: Number(row.reward_amount),
+        reward_points: Number(row.reward_amount),
+        estimated_duration: Number(row.estimated_duration),
+        estimated_seconds: Number(row.estimated_duration),
+        daily_limit: Number(row.daily_limit || 10),
+        daily_cap: Number(row.daily_limit || 10),
+        status: row.status,
+        provider: row.provider,
+        category: row.category || 'video',
+        is_demo: (row.provider || '').toLowerCase() === 'demo',
+        active: row.status === 'active',
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      }));
+    } catch (err) {
+      console.warn('Notice: Could not load Supabase reward_opportunities:', err);
+      return [];
+    }
+  },
+
+  // 6.2 Start Verified Reward Session on Server
+  async startRewardSession(opportunityId: string): Promise<any> {
+    const sb = getSupabaseClient();
+    if (!sb) throw new Error('Supabase is not configured.');
+
+    const { data, error } = await sb.rpc('start_reward_session', {
+      p_opportunity_id: opportunityId,
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Failed to start verified reward session.');
+    }
+    return data;
+  },
+
+  // 6.3 Verify and Claim Reward Session on Server
+  async verifyRewardSession(sessionId: string, idempotencyKey?: string): Promise<any> {
+    const sb = getSupabaseClient();
+    if (!sb) throw new Error('Supabase is not configured.');
+
+    const { data, error } = await sb.rpc('verify_and_claim_reward', {
+      p_session_id: sessionId,
+      p_idempotency_key: idempotencyKey,
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Failed to verify reward session.');
+    }
+    return data;
+  },
+
+  // 6.4 Get Reward Session By ID
+  async getRewardSessionById(sessionId: string): Promise<any | null> {
+    const sb = getSupabaseClient();
+    if (!sb) return null;
+    try {
+      const { data, error } = await sb
+        .from('reward_sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    } catch {
+      return null;
+    }
+  },
+
   // 7. Update Profile
   async updateProfile(userId: string, updates: Partial<Profile>): Promise<Profile | null> {
     const sb = getSupabaseClient();
@@ -546,3 +631,7 @@ export const supabaseDb = {
     return data;
   },
 };
+
+// Export alias for consistency
+export const supabaseDatabase = supabaseDb;
+

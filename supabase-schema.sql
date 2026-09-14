@@ -140,21 +140,64 @@ CREATE TABLE IF NOT EXISTS public.referrals (
 );
 
 -- ==============================================================================
--- 6. REWARD SESSIONS & EVENTS (Anti-abuse tracking)
+-- 6. REWARD OPPORTUNITIES, SESSIONS & ANTI-FRAUD LOGS
 -- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.reward_opportunities (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  reward_amount NUMERIC(12, 2) NOT NULL CHECK (reward_amount > 0),
+  estimated_duration INTEGER NOT NULL CHECK (estimated_duration > 0), -- in seconds
+  daily_limit INTEGER DEFAULT 10 NOT NULL CHECK (daily_limit > 0),
+  status TEXT DEFAULT 'active' NOT NULL CHECK (status IN ('active', 'inactive', 'archived')),
+  provider TEXT DEFAULT 'Demo' NOT NULL,
+  category TEXT DEFAULT 'video' NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Seed default DEMO opportunities
+INSERT INTO public.reward_opportunities (id, name, description, reward_amount, estimated_duration, daily_limit, status, provider, category)
+VALUES
+  ('opp_demo_vid_01', 'Demo Rewarded Video', 'Simulate watching a 30-second rewarded sponsor video to completion.', 10.00, 30, 10, 'active', 'Demo', 'video'),
+  ('opp_demo_vid_02', 'Demo Quick Clip', 'Watch a fast 15-second sponsor demonstration clip for rapid reward testing.', 5.00, 15, 15, 'active', 'Demo', 'video'),
+  ('opp_demo_survey_01', 'Demo Interactive Survey', 'Simulate completing an interactive brand feedback survey for bonus points.', 15.00, 45, 5, 'active', 'Demo', 'survey'),
+  ('opp_demo_app_01', 'Demo App Engagement', 'Simulate testing a partner mobile product and claim verified test points.', 20.00, 60, 5, 'active', 'Demo', 'app_trial')
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  description = EXCLUDED.description,
+  reward_amount = EXCLUDED.reward_amount,
+  estimated_duration = EXCLUDED.estimated_duration,
+  daily_limit = EXCLUDED.daily_limit,
+  status = EXCLUDED.status,
+  provider = EXCLUDED.provider,
+  category = EXCLUDED.category,
+  updated_at = now();
+
 CREATE TABLE IF NOT EXISTS public.reward_sessions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  opportunity_id TEXT NOT NULL,
-  provider TEXT NOT NULL,
-  expected_amount NUMERIC(12, 2) NOT NULL,
-  status TEXT DEFAULT 'started' NOT NULL CHECK (status IN ('started', 'completed', 'claimed', 'expired', 'invalidated')),
-  session_token TEXT NOT NULL,
+  reward_opportunity_id TEXT REFERENCES public.reward_opportunities(id) ON DELETE CASCADE NOT NULL,
+  status TEXT DEFAULT 'started' NOT NULL CHECK (status IN ('started', 'pending', 'completed', 'expired', 'failed', 'rejected')),
   started_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
   completed_at TIMESTAMPTZ,
-  claimed_at TIMESTAMPTZ,
   expires_at TIMESTAMPTZ NOT NULL,
-  metadata JSONB DEFAULT '{}'::jsonb
+  provider TEXT DEFAULT 'Demo' NOT NULL,
+  provider_session_id TEXT,
+  reward_amount NUMERIC(12, 2) NOT NULL CHECK (reward_amount > 0),
+  idempotency_key TEXT UNIQUE,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.fraud_events (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  session_id UUID,
+  event_type TEXT NOT NULL,
+  description TEXT NOT NULL,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS public.reward_events (

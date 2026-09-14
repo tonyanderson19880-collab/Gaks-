@@ -42,15 +42,52 @@ export interface Wallet {
 
 export interface RewardOpportunity {
   id: string;
-  title: string;
+  name: string;
+  title?: string;
   description: string;
-  category: 'video' | 'survey' | 'app_trial' | 'sponsored_task';
-  reward_points: number;
-  estimated_seconds: number;
+  category?: 'video' | 'survey' | 'app_trial' | 'sponsored_task';
+  reward_amount: number;
+  reward_points?: number;
+  estimated_duration: number; // seconds
+  estimated_seconds?: number;
+  daily_limit: number;
+  daily_cap?: number;
+  status: 'active' | 'inactive' | 'archived';
   provider: string;
-  is_demo: boolean;
-  active: boolean;
-  daily_cap: number;
+  is_demo?: boolean;
+  active?: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export type RewardSessionStatus = 'started' | 'pending' | 'completed' | 'expired' | 'failed' | 'rejected';
+
+export interface RewardSession {
+  id: string;
+  user_id: string;
+  reward_opportunity_id: string;
+  status: RewardSessionStatus;
+  started_at: string;
+  completed_at?: string;
+  expires_at: string;
+  provider: string;
+  provider_session_id?: string;
+  reward_amount: number;
+  idempotency_key?: string;
+  metadata?: any;
+  created_at?: string;
+}
+
+export interface FraudEvent {
+  id: string;
+  user_id?: string;
+  session_id?: string;
+  event_type: string;
+  description: string;
+  risk_score?: number;
+  flag_reason?: string;
+  metadata?: any;
+  resolved?: boolean;
   created_at: string;
 }
 

@@ -15,8 +15,14 @@ import {
   Eye,
   Sliders,
   LogOut,
+  Gift,
+  Plus,
+  Play,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react';
 import { api } from '../api';
+import { RewardOpportunity } from '../types';
 
 interface AdminDashboardProps {
   onNavigate: (tab: string) => void;
@@ -28,11 +34,26 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate }
   const [adminPassword, setAdminPassword] = useState('AdminPassword123!');
   const [loginError, setLoginError] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'withdrawals' | 'users' | 'security' | 'settings'>('withdrawals');
+  const [activeTab, setActiveTab] = useState<'withdrawals' | 'rewards' | 'users' | 'security' | 'settings'>('rewards');
   const [metrics, setMetrics] = useState<any>(null);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [opportunities, setOpportunities] = useState<RewardOpportunity[]>([]);
+  const [rewardSessions, setRewardSessions] = useState<any[]>([]);
+  const [fraudEvents, setFraudEvents] = useState<any[]>([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newOpp, setNewOpp] = useState({
+    name: '',
+    description: '',
+    reward_amount: 10,
+    estimated_duration: 30,
+    daily_limit: 10,
+    provider: 'Demo',
+    category: 'video' as 'video' | 'survey' | 'app_trial' | 'sponsored_task',
+    status: 'active' as 'active' | 'inactive',
+  });
+
   const [settings, setSettings] = useState<any>({
     minimum_withdrawal: 500,
     point_value_naira: 1.0,
@@ -45,17 +66,26 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate }
     if (!admin) return;
     try {
       setLoading(true);
-      const [overviewRes, withRes, usersRes, logsRes] = await Promise.all([
+      const [overviewRes, withRes, usersRes, logsRes, rewardsRes] = await Promise.all([
         api.getAdminOverview(),
         api.getAdminWithdrawals(),
         api.getAdminUsers(),
         api.getAdminAuditLogs(),
+        api.getAdminRewards(),
       ]);
       setMetrics(overviewRes.metrics);
       setSettings(overviewRes.settings);
       setWithdrawals(withRes.withdrawals || []);
       setUsersList(usersRes.users || []);
       setAuditLogs(logsRes.auditLogs || []);
+      setRewardSessions(rewardsRes.sessions || []);
+      setFraudEvents(rewardsRes.fraudEvents || []);
+      if (rewardsRes.opportunities) {
+        setOpportunities(rewardsRes.opportunities);
+      } else {
+        const oppsRes = await api.getAdminRewardOpportunities().catch(() => ({ opportunities: [] }));
+        setOpportunities(oppsRes.opportunities || []);
+      }
     } catch (err: any) {
       console.error('Failed to load admin data:', err);
     } finally {
@@ -79,6 +109,40 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate }
       setLoginError(err.message || 'Invalid admin credentials');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleOpportunity = async (id: string) => {
+    try {
+      await api.toggleAdminRewardOpportunity(id);
+      setActionSuccess('Reward opportunity status updated');
+      setTimeout(() => setActionSuccess(null), 3000);
+      await fetchAdminData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to toggle opportunity');
+    }
+  };
+
+  const handleCreateOpportunity = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.createAdminRewardOpportunity(newOpp);
+      setShowCreateModal(false);
+      setActionSuccess('New reward opportunity created successfully');
+      setTimeout(() => setActionSuccess(null), 3000);
+      setNewOpp({
+        name: '',
+        description: '',
+        reward_amount: 10,
+        estimated_duration: 30,
+        daily_limit: 10,
+        provider: 'Demo',
+        category: 'video',
+        status: 'active',
+      });
+      await fetchAdminData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to create opportunity');
     }
   };
 
@@ -291,6 +355,18 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate }
         {/* Tab Navigation */}
         <div className="flex items-center gap-2 border-b border-zinc-800 pb-2 overflow-x-auto">
           <button
+            onClick={() => setActiveTab('rewards')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 ${
+              activeTab === 'rewards'
+                ? 'bg-[#6C2BD9] text-white'
+                : 'bg-zinc-900 text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Gift className="w-3.5 h-3.5 text-[#B8F500]" />
+            <span>Reward Engine & Ops ({opportunities.length})</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('withdrawals')}
             className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 ${
               activeTab === 'withdrawals'
@@ -323,7 +399,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate }
             }`}
           >
             <AlertTriangle className="w-3.5 h-3.5" />
-            <span>Fraud Audit Logs</span>
+            <span>Fraud & Security ({fraudEvents.length})</span>
           </button>
 
           <button
@@ -338,6 +414,288 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate }
             <span>Platform Controls</span>
           </button>
         </div>
+
+        {/* Tab: Reward Engine & Opportunities */}
+        {activeTab === 'rewards' && (
+          <div className="space-y-6">
+            <div className="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-extrabold text-white">Reward Opportunities</h3>
+                    <span className="bg-[#B8F500] text-[#0F172A] font-black text-[10px] px-2 py-0.5 rounded uppercase">
+                      DEMO & LIVE
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Manage catalog of rewarded video, surveys, and partner activities with daily caps
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="px-4 py-2 rounded-xl bg-[#B8F500] hover:bg-[#A3DC00] text-[#0F172A] font-extrabold text-xs flex items-center gap-2 shadow-md transition-all self-start sm:self-auto"
+                >
+                  <Plus className="w-4 h-4 stroke-[3]" />
+                  <span>New Opportunity</span>
+                </button>
+              </div>
+
+              {opportunities.length === 0 ? (
+                <div className="py-12 text-center text-xs text-zinc-500">No reward opportunities configured.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-zinc-300">
+                    <thead className="bg-zinc-950 text-zinc-400 font-bold uppercase tracking-wider text-[10px]">
+                      <tr>
+                        <th className="p-3">Campaign / Name</th>
+                        <th className="p-3">Provider</th>
+                        <th className="p-3">Category</th>
+                        <th className="p-3">Reward Points</th>
+                        <th className="p-3">Duration</th>
+                        <th className="p-3">Daily Limit</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800">
+                      {opportunities.map((opp) => (
+                        <tr key={opp.id} className="hover:bg-zinc-800/50">
+                          <td className="p-3">
+                            <div className="font-bold text-white">{opp.name || opp.title}</div>
+                            <div className="text-[11px] text-zinc-400 line-clamp-1 max-w-xs">{opp.description}</div>
+                          </td>
+                          <td className="p-3 font-medium text-zinc-300">
+                            <span className="px-2 py-0.5 rounded bg-zinc-800 text-[11px] text-zinc-200">
+                              {opp.provider}
+                            </span>
+                          </td>
+                          <td className="p-3 capitalize text-zinc-300">{opp.category || 'video'}</td>
+                          <td className="p-3 font-extrabold text-[#B8F500] text-sm">
+                            +{opp.reward_amount || opp.reward_points} pts
+                          </td>
+                          <td className="p-3 text-zinc-300 font-mono text-xs">
+                            {opp.estimated_duration || opp.estimated_seconds || 30}s
+                          </td>
+                          <td className="p-3 text-zinc-300 font-mono text-xs">
+                            {opp.daily_limit || opp.daily_cap || 10} / day
+                          </td>
+                          <td className="p-3">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                                opp.status === 'active' || opp.active
+                                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                  : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                              }`}
+                            >
+                              {opp.status || (opp.active ? 'active' : 'inactive')}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <button
+                              onClick={() => handleToggleOpportunity(opp.id)}
+                              className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                                opp.status === 'active' || opp.active
+                                  ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
+                                  : 'bg-[#6C2BD9] hover:bg-[#5821B0] text-white'
+                              }`}
+                            >
+                              {opp.status === 'active' || opp.active ? 'Deactivate' : 'Activate'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Live Reward Sessions Stream */}
+            <div className="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-extrabold text-white">Recent Verified Reward Sessions</h3>
+                  <p className="text-xs text-zinc-400">Server-side HMAC validated completions and idempotency keys</p>
+                </div>
+              </div>
+
+              {rewardSessions.length === 0 ? (
+                <div className="py-8 text-center text-xs text-zinc-500">No reward sessions recorded yet.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-zinc-300">
+                    <thead className="bg-zinc-950 text-zinc-400 font-bold uppercase tracking-wider text-[10px]">
+                      <tr>
+                        <th className="p-3">Session ID</th>
+                        <th className="p-3">User ID</th>
+                        <th className="p-3">Opportunity</th>
+                        <th className="p-3">Reward</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3">Started</th>
+                        <th className="p-3">Completed</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800">
+                      {rewardSessions.slice(0, 15).map((s) => (
+                        <tr key={s.id} className="hover:bg-zinc-800/50">
+                          <td className="p-3 font-mono text-[11px] text-zinc-300">{s.id.slice(0, 12)}...</td>
+                          <td className="p-3 font-mono text-[11px] text-zinc-400">{s.user_id.slice(0, 8)}...</td>
+                          <td className="p-3 font-medium text-white">{s.opportunity_title || s.opportunity_name || 'Demo Video'}</td>
+                          <td className="p-3 font-bold text-[#B8F500]">+{s.reward_amount || s.reward_points} pts</td>
+                          <td className="p-3">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                                s.status === 'completed'
+                                  ? 'bg-[#B8F500] text-[#0F172A]'
+                                  : s.status === 'started'
+                                  ? 'bg-blue-900 text-blue-200'
+                                  : 'bg-red-950 text-red-200'
+                              }`}
+                            >
+                              {s.status}
+                            </span>
+                          </td>
+                          <td className="p-3 text-[11px] text-zinc-400">
+                            {new Date(s.started_at).toLocaleTimeString()}
+                          </td>
+                          <td className="p-3 text-[11px] text-zinc-400">
+                            {s.completed_at ? new Date(s.completed_at).toLocaleTimeString() : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Create Opportunity */}
+        {showCreateModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in">
+            <div className="bg-[#0F172A] border border-zinc-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+                <h3 className="text-lg font-extrabold text-white">Create Reward Opportunity</h3>
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="p-1 text-zinc-400 hover:text-white rounded-lg"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateOpportunity} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-zinc-400 mb-1">
+                    Opportunity Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Demo Rewarded Video"
+                    value={newOpp.name}
+                    onChange={(e) => setNewOpp({ ...newOpp, name: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white text-xs focus:outline-hidden focus:border-[#B8F500]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-zinc-400 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    required
+                    rows={2}
+                    placeholder="e.g. Watch a 30-second partner demonstration..."
+                    value={newOpp.description}
+                    onChange={(e) => setNewOpp({ ...newOpp, description: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white text-xs focus:outline-hidden focus:border-[#B8F500]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-zinc-400 mb-1">
+                      Reward (Points)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={newOpp.reward_amount}
+                      onChange={(e) => setNewOpp({ ...newOpp, reward_amount: parseFloat(e.target.value) || 10 })}
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white text-xs font-bold text-[#B8F500]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-zinc-400 mb-1">
+                      Duration (Seconds)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="5"
+                      value={newOpp.estimated_duration}
+                      onChange={(e) => setNewOpp({ ...newOpp, estimated_duration: parseInt(e.target.value) || 30 })}
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white text-xs font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-zinc-400 mb-1">
+                      Daily Limit / User
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={newOpp.daily_limit}
+                      onChange={(e) => setNewOpp({ ...newOpp, daily_limit: parseInt(e.target.value) || 10 })}
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white text-xs font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-zinc-400 mb-1">
+                      Category
+                    </label>
+                    <select
+                      value={newOpp.category}
+                      onChange={(e) => setNewOpp({ ...newOpp, category: e.target.value as any })}
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white text-xs font-bold"
+                    >
+                      <option value="video">Rewarded Video</option>
+                      <option value="survey">Interactive Survey</option>
+                      <option value="app_trial">App Engagement</option>
+                      <option value="sponsored_task">Sponsored Task</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex gap-3">
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 rounded-xl bg-[#B8F500] hover:bg-[#A3DC00] text-[#0F172A] font-extrabold text-xs shadow-md transition-all"
+                  >
+                    Save Opportunity
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-4 py-2.5 rounded-xl bg-zinc-800 text-zinc-300 font-semibold text-xs hover:bg-zinc-700"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Tab 1: Withdrawals Queue */}
         {activeTab === 'withdrawals' && (

@@ -239,6 +239,11 @@ async function startServer() {
     res.json({ opportunities });
   });
 
+  app.get('/api/rewards/history', requireUserAuth, (req: AuthenticatedRequest, res) => {
+    const history = dbManager.getUserRewardHistory(req.user!.id);
+    res.json(history);
+  });
+
   /**
    * Step 1: Create server-side reward session.
    * Generates unique session ID, server timestamp, cryptographic HMAC token.
@@ -582,7 +587,88 @@ async function startServer() {
   app.get('/api/admin/rewards', requireAdminAuth, (req: AuthenticatedRequest, res) => {
     const sessions = dbManager.getAllRewardSessions();
     const fraudEvents = dbManager.getFraudEvents();
-    res.json({ sessions, fraudEvents });
+    const opportunities = dbManager.getAllOpportunities();
+    res.json({ sessions, fraudEvents, opportunities });
+  });
+
+  app.get('/api/admin/rewards/opportunities', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    const opportunities = dbManager.getAllOpportunities();
+    res.json({ opportunities });
+  });
+
+  app.post('/api/admin/rewards/opportunities', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    try {
+      const { name, title, description, reward_amount, reward_points, estimated_duration, estimated_seconds, daily_limit, daily_cap, provider, category, status } = req.body;
+      const admin = req.admin!;
+      const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+
+      const opp = dbManager.createOpportunity(
+        {
+          name: name || title,
+          title: title || name,
+          description,
+          reward_amount: reward_amount || reward_points,
+          reward_points: reward_points || reward_amount,
+          estimated_duration: estimated_duration || estimated_seconds,
+          estimated_seconds: estimated_seconds || estimated_duration,
+          daily_limit: daily_limit || daily_cap,
+          daily_cap: daily_cap || daily_limit,
+          provider: provider || 'Demo',
+          category: category || 'video',
+          status: status || 'active',
+        },
+        admin.id,
+        ip
+      );
+
+      res.status(201).json({ success: true, opportunity: opp });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to create opportunity.' });
+    }
+  });
+
+  app.put('/api/admin/rewards/opportunities/:id', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    try {
+      const admin = req.admin!;
+      const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+      const updated = dbManager.updateOpportunity(req.params.id, req.body, admin.id, ip);
+
+      if (!updated) {
+        return res.status(404).json({ error: 'Reward opportunity not found.' });
+      }
+
+      res.json({ success: true, opportunity: updated });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to update opportunity.' });
+    }
+  });
+
+  app.patch('/api/admin/rewards/opportunities/:id/toggle', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    try {
+      const admin = req.admin!;
+      const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+      const current = dbManager.getOpportunityById(req.params.id);
+      if (!current) {
+        return res.status(404).json({ error: 'Reward opportunity not found.' });
+      }
+
+      const newActive = !current.active;
+      const updated = dbManager.updateOpportunity(
+        req.params.id,
+        { active: newActive, status: newActive ? 'active' : 'inactive' },
+        admin.id,
+        ip
+      );
+
+      res.json({ success: true, opportunity: updated });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to toggle opportunity status.' });
+    }
+  });
+
+  app.get('/api/admin/fraud-events', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    const fraudEvents = dbManager.getFraudEvents();
+    res.json({ fraudEvents });
   });
 
   app.get('/api/admin/withdrawals', requireAdminAuth, (req: AuthenticatedRequest, res) => {

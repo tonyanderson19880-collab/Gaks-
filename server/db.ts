@@ -172,82 +172,80 @@ function getInitialSeedData(): DatabaseSchema {
     ],
     reward_opportunities: [
       {
-        id: 'opp_vid_01',
-        title: 'Brand Video Ad',
-        description: 'Watch a short sponsored video ad to completion to earn reward points.',
+        id: 'opp_demo_vid_01',
+        title: 'Demo Rewarded Video',
+        name: 'Demo Rewarded Video',
+        description: 'Simulate watching a 30-second rewarded sponsor video to completion.',
         category: 'video',
-        reward_points: 25.0,
-        estimated_seconds: 15,
-        provider: 'SwiftEarnNetwork',
-        is_demo: false,
-        active: true,
-        daily_cap: 10,
-        created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
-      },
-      {
-        id: 'opp_vid_02',
-        title: 'Tech Spotlight Video Ad',
-        description: 'Watch this featured technology showcase video ad to earn bonus reward points.',
-        category: 'video',
-        reward_points: 50.0,
-        estimated_seconds: 20,
-        provider: 'SwiftEarnNetwork',
-        is_demo: false,
-        active: true,
-        daily_cap: 8,
-        created_at: new Date(Date.now() - 25 * 86400000).toISOString(),
-      },
-      {
-        id: 'opp_vid_03',
-        title: 'Mobile Game Trailer Ad',
-        description: 'Preview an exciting mobile game video ad to unlock high-tier reward points.',
-        category: 'video',
-        reward_points: 75.0,
-        estimated_seconds: 25,
-        provider: 'SwiftEarnNetwork',
-        is_demo: false,
-        active: true,
-        daily_cap: 5,
-        created_at: new Date(Date.now() - 20 * 86400000).toISOString(),
-      },
-      {
-        id: 'opp_vid_04',
-        title: 'Premium Sponsor Video Ad',
-        description: 'Watch an exclusive brand promo video ad to claim maximum verified points.',
-        category: 'video',
-        reward_points: 100.0,
+        reward_points: 10.0,
+        reward_amount: 10.0,
         estimated_seconds: 30,
-        provider: 'SwiftEarnNetwork',
-        is_demo: false,
+        estimated_duration: 30,
+        provider: 'Demo',
+        is_demo: true,
         active: true,
-        daily_cap: 5,
-        created_at: new Date(Date.now() - 15 * 86400000).toISOString(),
-      },
-      {
-        id: 'opp_vid_05',
-        title: 'Quick Sponsor Clip Ad',
-        description: 'Watch a quick 10-second sponsor video clip for fast reward points.',
-        category: 'video',
-        reward_points: 20.0,
-        estimated_seconds: 10,
-        provider: 'SwiftEarnNetwork',
-        is_demo: false,
-        active: true,
-        daily_cap: 15,
-        created_at: new Date(Date.now() - 10 * 86400000).toISOString(),
-      },
-      {
-        id: 'opp_vid_06',
-        title: 'Lifestyle & Shopping Video Ad',
-        description: 'Watch an entertaining lifestyle products video ad and earn points instantly.',
-        category: 'video',
-        reward_points: 35.0,
-        estimated_seconds: 15,
-        provider: 'SwiftEarnNetwork',
-        is_demo: false,
-        active: true,
+        status: 'active',
         daily_cap: 10,
-        created_at: new Date(Date.now() - 5 * 86400000).toISOString(),
+        daily_limit: 10,
+        created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'opp_demo_vid_02',
+        title: 'Demo Quick Clip',
+        name: 'Demo Quick Clip',
+        description: 'Watch a fast 15-second sponsor demonstration clip for rapid reward testing.',
+        category: 'video',
+        reward_points: 5.0,
+        reward_amount: 5.0,
+        estimated_seconds: 15,
+        estimated_duration: 15,
+        provider: 'Demo',
+        is_demo: true,
+        active: true,
+        status: 'active',
+        daily_cap: 15,
+        daily_limit: 15,
+        created_at: new Date(Date.now() - 25 * 86400000).toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'opp_demo_survey_01',
+        title: 'Demo Interactive Survey',
+        name: 'Demo Interactive Survey',
+        description: 'Simulate completing an interactive brand feedback survey for bonus points.',
+        category: 'survey',
+        reward_points: 15.0,
+        reward_amount: 15.0,
+        estimated_seconds: 45,
+        estimated_duration: 45,
+        provider: 'Demo',
+        is_demo: true,
+        active: true,
+        status: 'active',
+        daily_cap: 5,
+        daily_limit: 5,
+        created_at: new Date(Date.now() - 20 * 86400000).toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'opp_demo_app_01',
+        title: 'Demo App Engagement',
+        name: 'Demo App Engagement',
+        description: 'Simulate testing a partner mobile product and claim verified test points.',
+        category: 'app_trial',
+        reward_points: 20.0,
+        reward_amount: 20.0,
+        estimated_seconds: 60,
+        estimated_duration: 60,
+        provider: 'Demo',
+        is_demo: true,
+        active: true,
+        status: 'active',
+        daily_cap: 5,
+        daily_limit: 5,
+        created_at: new Date(Date.now() - 15 * 86400000).toISOString(),
+        updated_at: new Date().toISOString(),
       },
     ],
     reward_sessions: [],
@@ -769,8 +767,163 @@ class DatabaseManager {
     return this.db.reward_opportunities.filter((o) => o.active);
   }
 
+  getAllOpportunities(): RewardOpportunity[] {
+    return [...this.db.reward_opportunities];
+  }
+
   getOpportunityById(id: string): RewardOpportunity | undefined {
     return this.db.reward_opportunities.find((o) => o.id === id);
+  }
+
+  createOpportunity(
+    params: {
+      name?: string;
+      title: string;
+      description: string;
+      reward_amount?: number;
+      reward_points?: number;
+      estimated_duration?: number;
+      estimated_seconds?: number;
+      daily_limit?: number;
+      daily_cap?: number;
+      status?: 'active' | 'inactive' | 'archived';
+      provider?: string;
+      category?: 'video' | 'survey' | 'app_trial' | 'sponsored_task';
+    },
+    adminId?: string,
+    ip?: string
+  ): RewardOpportunity {
+    const oppId = `opp_${crypto.randomBytes(6).toString('hex')}`;
+    const rewardPoints = params.reward_amount || params.reward_points || 10;
+    const duration = params.estimated_duration || params.estimated_seconds || 30;
+    const cap = params.daily_limit || params.daily_cap || 10;
+    const providerName = params.provider || 'Demo';
+    const isDemo = providerName.toLowerCase() === 'demo';
+    const active = params.status !== 'inactive' && params.status !== 'archived';
+
+    const newOpp: RewardOpportunity = {
+      id: oppId,
+      name: params.name || params.title,
+      title: params.title || params.name || 'Reward Opportunity',
+      description: params.description || '',
+      category: params.category || 'video',
+      reward_points: rewardPoints,
+      reward_amount: rewardPoints,
+      estimated_seconds: duration,
+      estimated_duration: duration,
+      provider: providerName,
+      is_demo: isDemo,
+      active,
+      status: active ? 'active' : 'inactive',
+      daily_cap: cap,
+      daily_limit: cap,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    this.db.reward_opportunities.push(newOpp);
+
+    if (adminId) {
+      this.addAuditLog({
+        admin_id: adminId,
+        action: 'CREATE_REWARD_OPPORTUNITY',
+        target_resource: 'reward_opportunities',
+        target_id: oppId,
+        details: newOpp,
+        ip_address: ip,
+      });
+    }
+
+    this.persist();
+    return newOpp;
+  }
+
+  updateOpportunity(
+    id: string,
+    updates: Partial<RewardOpportunity>,
+    adminId?: string,
+    ip?: string
+  ): RewardOpportunity | undefined {
+    const opp = this.getOpportunityById(id);
+    if (!opp) return undefined;
+
+    if (updates.name) {
+      opp.name = updates.name;
+      opp.title = updates.name;
+    }
+    if (updates.title) {
+      opp.title = updates.title;
+      opp.name = updates.title;
+    }
+    if (updates.description !== undefined) opp.description = updates.description;
+    if (updates.reward_amount !== undefined || updates.reward_points !== undefined) {
+      const amt = updates.reward_amount !== undefined ? updates.reward_amount : updates.reward_points!;
+      opp.reward_amount = amt;
+      opp.reward_points = amt;
+    }
+    if (updates.estimated_duration !== undefined || updates.estimated_seconds !== undefined) {
+      const dur = updates.estimated_duration !== undefined ? updates.estimated_duration : updates.estimated_seconds!;
+      opp.estimated_duration = dur;
+      opp.estimated_seconds = dur;
+    }
+    if (updates.daily_limit !== undefined || updates.daily_cap !== undefined) {
+      const cap = updates.daily_limit !== undefined ? updates.daily_limit : updates.daily_cap!;
+      opp.daily_limit = cap;
+      opp.daily_cap = cap;
+    }
+    if (updates.provider !== undefined) {
+      opp.provider = updates.provider;
+      opp.is_demo = updates.provider.toLowerCase() === 'demo';
+    }
+    if (updates.status !== undefined) {
+      opp.status = updates.status;
+      opp.active = updates.status === 'active';
+    } else if (updates.active !== undefined) {
+      opp.active = updates.active;
+      opp.status = updates.active ? 'active' : 'inactive';
+    }
+    if (updates.category !== undefined) opp.category = updates.category;
+
+    opp.updated_at = new Date().toISOString();
+
+    if (adminId) {
+      this.addAuditLog({
+        admin_id: adminId,
+        action: 'UPDATE_REWARD_OPPORTUNITY',
+        target_resource: 'reward_opportunities',
+        target_id: id,
+        details: updates,
+        ip_address: ip,
+      });
+    }
+
+    this.persist();
+    return opp;
+  }
+
+  getUserDailyCompletedRewardCount(userId: string, opportunityId?: string): number {
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const todayTimestamp = todayStart.getTime();
+
+    return this.db.reward_sessions.filter((s) => {
+      if (s.user_id !== userId || !s.claimed) return false;
+      if (opportunityId && s.opportunity_id !== opportunityId) return false;
+      const started = new Date(s.started_at).getTime();
+      return started >= todayTimestamp;
+    }).length;
+  }
+
+  getUserRewardHistory(userId: string): { sessions: RewardSession[]; totalEarned: number } {
+    const userSessions = this.db.reward_sessions
+      .filter((s) => s.user_id === userId)
+      .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
+
+    const totalEarned = this.db.ledger_entries
+      .filter((l) => l.user_id === userId && l.entry_type === 'reward_credit' && l.status === 'confirmed')
+      .reduce((sum, l) => sum + l.amount, 0);
+
+    return { sessions: userSessions, totalEarned };
   }
 
   createRewardSession(params: {
@@ -781,13 +934,23 @@ class DatabaseManager {
   }): { session: RewardSession; opportunity: RewardOpportunity; token: string } {
     const opp = this.getOpportunityById(params.opportunityId);
     if (!opp) throw new Error('Reward opportunity not found');
+    if (!opp.active || opp.status === 'inactive' || opp.status === 'archived') {
+      throw new Error('This reward opportunity is currently inactive.');
+    }
+
+    // Check daily cap
+    const dailyCap = opp.daily_limit || opp.daily_cap || 10;
+    const userDailyCount = this.getUserDailyCompletedRewardCount(params.userId, params.opportunityId);
+    if (userDailyCount >= dailyCap) {
+      throw new Error(`Daily completion limit (${dailyCap}/${dailyCap}) reached for this opportunity. Please try again tomorrow.`);
+    }
 
     const sessionId = `ses_${crypto.randomBytes(10).toString('hex')}`;
     const providerSessionId = `PS-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15-minute expiration
 
     // Cryptographic token payload
-    const tokenPayload = `${sessionId}:${params.userId}:${params.opportunityId}:${opp.estimated_seconds}`;
+    const tokenPayload = `${sessionId}:${params.userId}:${params.opportunityId}:${opp.estimated_seconds || opp.estimated_duration || 30}`;
     const hmac = crypto
       .createHmac('sha256', process.env.REWARD_PROVIDER_SECRET || 'swift-earn-crypto-reward-secret-v1-production')
       .update(tokenPayload)
@@ -814,7 +977,7 @@ class DatabaseManager {
       id: `rev_${crypto.randomBytes(8).toString('hex')}`,
       session_id: sessionId,
       event_type: 'session_start',
-      metadata: { oppTitle: opp.title, points: opp.reward_points },
+      metadata: { oppTitle: opp.title || opp.name, points: opp.reward_points || opp.reward_amount },
       created_at: new Date().toISOString(),
     });
 
