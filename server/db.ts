@@ -305,7 +305,8 @@ function getInitialSeedData(): DatabaseSchema {
         id: 'wth_001',
         user_id: user1Id,
         amount: 1000.0,
-        payment_method: 'Bank Transfer',
+        currency: 'NGN',
+        payment_method: 'bank_transfer',
         account_details: {
           bank_name: 'Zenith Bank',
           account_number: '2087654321',
@@ -322,13 +323,17 @@ function getInitialSeedData(): DatabaseSchema {
         id: 'wth_002',
         user_id: user3Id,
         amount: 600.0,
-        payment_method: 'Fintech Wallet',
+        currency: 'NGN',
+        payment_method: 'opay',
         account_details: {
           wallet_id: 'OPAY-8120000000',
+          wallet_provider: 'OPay',
+          account_number: '8120000000',
+          account_name: 'David Adeleke',
         },
         reference: 'WTH-REF-192837',
         status: 'pending',
-        admin_notes: 'Flagged for velocity review: session rate exceeds standard threshold',
+        admin_notes: 'Awaiting admin clearance review',
         created_at: new Date(Date.now() - 1 * 86400000).toISOString(),
         updated_at: new Date(Date.now() - 1 * 86400000).toISOString(),
       },
@@ -409,6 +414,11 @@ function getInitialSeedData(): DatabaseSchema {
     config: {
       reward_point_multiplier: 1.0,
       minimum_withdrawal: 500.0,
+      maximum_withdrawal: 50000.0,
+      daily_withdrawal_limit: 100000.0,
+      max_pending_withdrawals: 1,
+      point_value_naira: 1.0,
+      supported_payment_methods: ['bank_transfer', 'opay', 'palmpay', 'kuda', 'crypto'],
       maximum_daily_rewards: 30,
       referral_bonus_amount: 50.0,
       allowed_providers: ['SwiftEarnCompliantNetwork', 'GoogleAdMobSSV', 'UnityAdsRewarded'],
@@ -1016,6 +1026,14 @@ class DatabaseManager {
       };
     }
 
+    const maxAmount = this.db.config.maximum_withdrawal || 50000;
+    if (params.amount > maxAmount) {
+      return {
+        success: false,
+        message: `Amount exceeds maximum single withdrawal limit of ₦${maxAmount.toLocaleString('en-US')}`,
+      };
+    }
+
     const wallet = this.getWallet(params.userId);
     if (wallet.available_balance < params.amount) {
       return {
@@ -1024,14 +1042,15 @@ class DatabaseManager {
       };
     }
 
-    // Check pending withdrawal restriction (maximum 1 pending withdrawal at a time)
-    const existingPending = this.db.withdrawals.find(
+    // Check pending withdrawal restriction
+    const maxPending = this.db.config.max_pending_withdrawals || 1;
+    const existingPending = this.db.withdrawals.filter(
       (w) => w.user_id === params.userId && (w.status === 'pending' || w.status === 'processing')
     );
-    if (existingPending) {
+    if (existingPending.length >= maxPending) {
       return {
         success: false,
-        message: 'You already have a pending withdrawal request under processing. Please wait until it concludes.',
+        message: 'You already have an active withdrawal request under review. Please wait for it to conclude before submitting another.',
       };
     }
 
@@ -1040,14 +1059,26 @@ class DatabaseManager {
     wallet.available_balance = newAvailable;
     wallet.updated_at = new Date().toISOString();
 
+    const accDetails = params.accountDetails || {};
     const withdrawal: Withdrawal = {
       id: `wth_${crypto.randomBytes(8).toString('hex')}`,
       user_id: params.userId,
       amount: params.amount,
+      currency: 'NGN',
       payment_method: params.paymentMethod,
-      account_details: params.accountDetails,
+      bank_name: accDetails.bankName || accDetails.bank_name,
+      account_number: accDetails.accountNumber || accDetails.account_number || accDetails.walletAccountId || accDetails.wallet_account_id,
+      account_name: accDetails.accountName || accDetails.account_name,
+      account_details: {
+        bank_name: accDetails.bankName || accDetails.bank_name,
+        account_number: accDetails.accountNumber || accDetails.account_number,
+        account_name: accDetails.accountName || accDetails.account_name,
+        wallet_provider: accDetails.walletProvider || accDetails.wallet_provider,
+        wallet_account_id: accDetails.walletAccountId || accDetails.wallet_account_id,
+      },
       reference,
       status: 'pending',
+      is_demo: this.db.config.demo_mode ?? true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -1061,7 +1092,7 @@ class DatabaseManager {
       running_balance: newAvailable,
       status: 'pending',
       reference,
-      description: `Withdrawal payout request submitted via ${params.paymentMethod} (${reference})`,
+      description: `Withdrawal payout request submitted via ${params.paymentMethod} (${reference}) [DEMO TEST MODE]`,
       idempotency_key: `idemp_${withdrawal.id}`,
       created_at: new Date().toISOString(),
     };
@@ -1072,7 +1103,7 @@ class DatabaseManager {
     this.addNotification({
       user_id: params.userId,
       title: 'Withdrawal Request Submitted',
-      message: `Your request for ₦${params.amount.toFixed(2)} (Ref: ${reference}) is pending processing review.`,
+      message: `Your request for ₦${params.amount.toFixed(2)} (Ref: ${reference}) is pending processing in Demo Mode.`,
       type: 'withdrawal',
     });
 
@@ -1085,7 +1116,8 @@ class DatabaseManager {
     status: Withdrawal['status'],
     adminNotes: string,
     adminId: string,
-    ip?: string
+    ip?: string,
+    providerRef?: string
   ): { success: boolean; withdrawal?: Withdrawal; message?: string } {
     const w = this.db.withdrawals.find((item) => item.id === withdrawalId);
     if (!w) return { success: false, message: 'Withdrawal not found' };
@@ -1093,26 +1125,34 @@ class DatabaseManager {
     const oldStatus = w.status;
     w.status = status;
     w.admin_notes = adminNotes;
+    w.admin_note = adminNotes;
     w.updated_at = new Date().toISOString();
+    if (providerRef) {
+      w.provider_reference = providerRef;
+    }
 
     const wallet = this.getWallet(w.user_id);
     const ledger = this.db.ledger_entries.find((l) => l.reference === w.reference);
 
     if (status === 'completed') {
       w.processed_at = new Date().toISOString();
+      if (!w.provider_reference) {
+        w.provider_reference = `DEMO-PAY-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+      }
       if (ledger) ledger.status = 'confirmed';
       wallet.total_withdrawn = Math.round((wallet.total_withdrawn + w.amount) * 100) / 100;
       wallet.updated_at = new Date().toISOString();
 
       this.addNotification({
         user_id: w.user_id,
-        title: 'Withdrawal Completed',
-        message: `Your withdrawal of ₦${w.amount.toFixed(2)} (Ref: ${w.reference}) was sent successfully!`,
+        title: 'Withdrawal Completed [DEMO]',
+        message: `Your withdrawal of ₦${w.amount.toFixed(2)} (Ref: ${w.reference}) was confirmed! Demo Provider Ref: ${w.provider_reference}`,
         type: 'withdrawal',
       });
-    } else if (status === 'rejected' || status === 'failed') {
-      if (oldStatus !== 'rejected' && oldStatus !== 'failed') {
-        // Reversal: credit funds back to wallet
+    } else if (status === 'rejected' || status === 'failed' || status === 'cancelled') {
+      w.rejection_reason = adminNotes || (status === 'failed' ? 'Payment provider failed to disburse' : 'Admin rejected request');
+      if (oldStatus !== 'rejected' && oldStatus !== 'failed' && oldStatus !== 'cancelled') {
+        // Reversal: credit funds back to user wallet
         wallet.available_balance = Math.round((wallet.available_balance + w.amount) * 100) / 100;
         wallet.updated_at = new Date().toISOString();
 
@@ -1127,17 +1167,27 @@ class DatabaseManager {
           running_balance: wallet.available_balance,
           status: 'confirmed',
           reference: `REV-${w.reference}`,
-          description: `Withdrawal refund reversal (${status}): ${adminNotes || 'Payment provider returned funds'}`,
+          description: `Withdrawal refund reversal (${status}): ${w.rejection_reason}`,
           created_at: new Date().toISOString(),
         });
 
         this.addNotification({
           user_id: w.user_id,
-          title: `Withdrawal ${status.toUpperCase()}`,
-          message: `Your withdrawal of ₦${w.amount.toFixed(2)} was ${status}. Funds returned to your available balance. Reason: ${adminNotes || 'Verification failed'}`,
+          title: `Withdrawal ${status.toUpperCase()} [Refunded]`,
+          message: `Your withdrawal of ₦${w.amount.toFixed(2)} was ${status}. Funds of ₦${w.amount.toFixed(2)} have been refunded to your wallet. Reason: ${w.rejection_reason}`,
           type: 'withdrawal',
         });
       }
+    } else if (status === 'processing') {
+      if (!w.provider_reference) {
+        w.provider_reference = `DEMO-TRF-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+      }
+      this.addNotification({
+        user_id: w.user_id,
+        title: 'Withdrawal Processing',
+        message: `Your withdrawal of ₦${w.amount.toFixed(2)} (Ref: ${w.reference}) is now being processed by Demo Settlement Gateway.`,
+        type: 'withdrawal',
+      });
     }
 
     this.addAuditLog({

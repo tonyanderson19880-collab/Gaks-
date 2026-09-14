@@ -677,15 +677,54 @@ async function startServer() {
   });
 
   app.post('/api/admin/withdrawals/:id/review', requireAdminAuth, (req: AuthenticatedRequest, res) => {
-    const { status, adminNotes } = req.body;
+    const { status, adminNotes, rejectionReason, providerReference } = req.body;
     const admin = req.admin!;
     const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
 
-    const result = dbManager.updateWithdrawalStatus(req.params.id, status, adminNotes, admin.id, ip);
+    const note = rejectionReason || adminNotes || (status === 'completed' ? 'Payout verified & settled in demo sandbox' : 'Status updated by admin');
+    const result = dbManager.updateWithdrawalStatus(req.params.id, status, note, admin.id, ip, providerReference);
     if (!result.success) {
       return res.status(400).json({ error: result.message });
     }
     res.json({ success: true, withdrawal: result.withdrawal });
+  });
+
+  app.post('/api/admin/withdrawals/:id/simulate-demo', requireAdminAuth, async (req: AuthenticatedRequest, res) => {
+    const admin = req.admin!;
+    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+    const withdrawal = dbManager.getWithdrawals().find((w) => w.id === req.params.id);
+
+    if (!withdrawal) {
+      return res.status(404).json({ error: 'Withdrawal not found.' });
+    }
+
+    // Use DemoPaymentProvider to simulate the settlement gateway
+    const { demoPaymentProvider } = await import('./server/paymentProviders/DemoPaymentProvider');
+    const payResult = await demoPaymentProvider.createPayment({
+      withdrawalId: withdrawal.id,
+      amount: withdrawal.amount,
+      currency: withdrawal.currency || 'NGN',
+      paymentMethod: withdrawal.payment_method,
+      accountDetails: withdrawal.account_details || {},
+      reference: withdrawal.reference,
+    });
+
+    const targetStatus = payResult.status === 'failed' ? 'failed' : 'completed';
+    const note = payResult.message || `[DEMO TEST GATEWAY] Processed via ${payResult.provider}`;
+    const result = dbManager.updateWithdrawalStatus(
+      withdrawal.id,
+      targetStatus,
+      note,
+      admin.id,
+      ip,
+      payResult.providerReference
+    );
+
+    res.json({
+      success: true,
+      simulation: payResult,
+      withdrawal: result.withdrawal,
+    });
   });
 
   app.get('/api/admin/referrals', requireAdminAuth, (req: AuthenticatedRequest, res) => {

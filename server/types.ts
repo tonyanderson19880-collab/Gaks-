@@ -96,16 +96,26 @@ export interface Withdrawal {
   id: string;
   user_id: string;
   amount: number;
+  currency: string;
   payment_method: string;
+  account_name?: string;
+  account_number?: string;
+  bank_name?: string;
   account_details: {
     bank_name?: string;
     account_number?: string;
     account_name?: string;
     wallet_id?: string;
+    wallet_provider?: string;
+    wallet_account_id?: string;
   };
   reference: string;
-  status: 'pending' | 'processing' | 'completed' | 'rejected' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'rejected' | 'failed' | 'cancelled';
   admin_notes?: string;
+  admin_note?: string;
+  rejection_reason?: string;
+  is_demo?: boolean;
+  provider_reference?: string;
   processed_at?: string;
   created_at: string;
   updated_at: string;
@@ -164,7 +174,12 @@ export interface NotificationItem {
 
 export interface SystemConfig {
   reward_point_multiplier: number; // e.g. 1 point = 1 NGN
+  point_value_naira: number; // 1.0 NGN
   minimum_withdrawal: number; // e.g. 500 NGN
+  maximum_withdrawal: number; // e.g. 50000 NGN
+  daily_withdrawal_limit: number; // e.g. 100000 NGN
+  max_pending_withdrawals: number; // e.g. 1
+  supported_payment_methods: string[];
   maximum_daily_rewards: number; // e.g. 30
   referral_bonus_amount: number; // e.g. 50 NGN
   allowed_providers: string[];

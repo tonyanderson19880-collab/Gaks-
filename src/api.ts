@@ -602,7 +602,7 @@ export const api = {
     ),
   updateWithdrawalStatus: (
     id: string,
-    body: { status: string; rejectionReason?: string; providerReference?: string }
+    body: { status: string; rejectionReason?: string; providerReference?: string; adminNotes?: string }
   ) =>
     request<{ success: boolean; withdrawal: Withdrawal }>(
       `/api/admin/withdrawals/${id}/review`,
@@ -610,8 +610,18 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({
           status: body.status,
-          adminNotes: body.rejectionReason || body.providerReference || 'Admin status update',
+          adminNotes: body.rejectionReason || body.adminNotes || body.providerReference || 'Admin status update',
+          rejectionReason: body.rejectionReason,
+          providerReference: body.providerReference,
         }),
+      },
+      true
+    ),
+  simulateAdminDemoPayout: (id: string) =>
+    request<{ success: boolean; simulation: any; withdrawal: Withdrawal }>(
+      `/api/admin/withdrawals/${id}/simulate-demo`,
+      {
+        method: 'POST',
       },
       true
     ),
@@ -633,8 +643,13 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify({
           minimum_withdrawal: body.minimum_withdrawal,
+          maximum_withdrawal: body.maximum_withdrawal,
+          daily_withdrawal_limit: body.daily_withdrawal_limit,
+          max_pending_withdrawals: body.max_pending_withdrawals,
           reward_point_multiplier: body.point_value_naira,
+          point_value_naira: body.point_value_naira,
           demo_mode: body.demo_mode,
+          supported_payment_methods: body.supported_payment_methods,
         }),
       },
       true

@@ -112,22 +112,42 @@ export interface Withdrawal {
   id: string;
   user_id: string;
   amount: number;
+  currency?: string;
   payment_method: string;
+  account_name?: string;
+  account_number?: string;
+  bank_name?: string;
   account_details: {
     bank_name?: string;
     account_number?: string;
     account_name?: string;
     wallet_id?: string;
+    wallet_provider?: string;
+    wallet_account_id?: string;
   };
   reference: string;
-  status: 'pending' | 'processing' | 'completed' | 'rejected' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'rejected' | 'failed' | 'cancelled';
   admin_notes?: string;
+  admin_note?: string;
+  rejection_reason?: string;
+  is_demo?: boolean;
+  provider_reference?: string;
   processed_at?: string;
   created_at: string;
   updated_at: string;
 }
 
 export type WithdrawalRequest = Withdrawal;
+
+export interface WithdrawalSettings {
+  minimum_withdrawal: number;
+  maximum_withdrawal: number;
+  daily_withdrawal_limit: number;
+  max_pending_withdrawals: number;
+  supported_payment_methods: string[];
+  demo_mode: boolean;
+  point_value_naira: number;
+}
 
 export interface ReferralSummary {
   referralCode: string;
@@ -157,17 +177,43 @@ export interface NotificationItem {
 }
 
 export interface SystemConfig {
-  reward_point_multiplier: number;
+  reward_point_multiplier?: number;
   minimum_withdrawal: number;
-  maximum_daily_rewards: number;
-  referral_bonus_amount: number;
-  allowed_providers: string[];
+  maximum_withdrawal?: number;
+  daily_withdrawal_limit?: number;
+  max_pending_withdrawals?: number;
+  point_value_naira?: number;
+  supported_payment_methods?: string[];
+  maximum_daily_rewards?: number;
+  referral_bonus_amount?: number;
+  allowed_providers?: string[];
   demo_mode: boolean;
-  public_stats: {
+  public_stats?: {
     users_count: string;
     rewards_completed: string;
     rewards_issued: string;
   };
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  role: string;
+  created_at: string;
+}
+
+export interface AuditLog {
+  id: string;
+  admin_id?: string;
+  user_id?: string;
+  action?: string;
+  event_type?: string;
+  target_resource?: string;
+  target_id?: string;
+  details?: any;
+  severity?: 'INFO' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  ip_address?: string;
+  created_at: string;
 }
 
 export interface PublicStats {
