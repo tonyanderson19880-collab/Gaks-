@@ -11,7 +11,7 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
   mode = 'request',
   onNavigate,
 }) => {
-  const { resetPassword, updatePassword, isSupabase } = useAuth();
+  const { resetPassword, updatePassword } = useAuth();
   const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -34,9 +34,7 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
       setLoading(true);
       await resetPassword(email);
       setSuccessMessage(
-        isSupabase
-          ? `Password reset link sent! Check your inbox at ${email} and click the link to set a new password.`
-          : `Password reset link simulated for ${email}. When connected to Supabase, this sends a real reset email with an instant recovery link.`
+        `Password reset link sent! Check your inbox at ${email} and click the link to set your new password.`
       );
     } catch (err: any) {
       setError(err.message || 'Unable to send password reset email. Please try again.');

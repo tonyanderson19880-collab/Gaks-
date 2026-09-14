@@ -31,7 +31,6 @@ interface AuthContextType {
   refreshUserData: () => Promise<void>;
   adminLogin: (email: string, pass: string) => Promise<void>;
   adminLogout: () => void;
-  switchDemoMode: (mode: 'guest' | 'user' | 'admin') => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -122,10 +121,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const init = async () => {
       setIsLoading(true);
 
-      // Check if URL contains recovery hash or query
+      // Check URL parameters for password recovery callback
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const queryParams = new URLSearchParams(window.location.search);
+
       if (
-        window.location.hash.includes('type=recovery') ||
-        new URLSearchParams(window.location.search).get('type') === 'recovery'
+        hashParams.get('type') === 'recovery' ||
+        queryParams.get('type') === 'recovery' ||
+        window.location.hash.includes('type=recovery')
       ) {
         setIsPasswordRecovery(true);
       }
@@ -134,7 +137,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const sb = getSupabaseClient();
         if (sb) {
           try {
-            // Restore persistent Supabase session on page refresh
+            // Restore persistent Supabase session on initial page load / refresh
             const { data: sessionData } = await sb.auth.getSession();
             if (sessionData?.session?.user) {
               const sbUser = sessionData.session.user;
@@ -144,10 +147,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setWallet(sbData.wallet);
             }
           } catch (err) {
-            console.error('Failed to restore Supabase session on refresh:', err);
+            console.error('Failed to restore Supabase session on startup:', err);
           }
 
-          // Listen for authentication changes (login, logout, token refresh, password recovery)
+          // Realtime auth state listener: login, logout, token refresh, password recovery
           const { data: listener } = sb.auth.onAuthStateChange(async (event, session) => {
             if (event === 'PASSWORD_RECOVERY') {
               setIsPasswordRecovery(true);
@@ -183,92 +186,110 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isSupabase]);
 
   /**
-   * 1. Log in with email and password
+   * 1. Supabase Log in with email and password
    */
   const login = async (email: string, pass: string) => {
-    if (isSupabaseConfigured()) {
-      const sb = getSupabaseClient();
-      if (!sb) {
-        throw new Error('Supabase client is not available. Please verify configuration.');
+    if (!isSupabaseConfigured()) {
+      // Check if running on local development server with Express backend
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        try {
+          const data = await api.login({ email, password: pass });
+          setToken(data.token);
+          setUser(data.user);
+          setProfile(data.profile);
+          setWallet(data.wallet);
+          await refreshUserData();
+          return;
+        } catch (err: any) {
+          throw new Error(err.message || 'Login failed. Please check your credentials.');
+        }
       }
-      const { data, error } = await sb.auth.signInWithPassword({
-        email: email.trim(),
-        password: pass,
-      });
 
-      if (error) {
-        throw new Error(formatSupabaseAuthError(error));
+      throw new Error(
+        'Supabase is not configured on your Vercel deployment. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your Vercel project Environment Variables and redeploy.'
+      );
+    }
+
+    const sb = getSupabaseClient();
+    if (!sb) {
+      throw new Error('Supabase client failed to initialize. Please check your URL and anon key.');
+    }
+
+    const { data, error } = await sb.auth.signInWithPassword({
+      email: email.trim(),
+      password: pass,
+    });
+
+    if (error) {
+      throw new Error(formatSupabaseAuthError(error));
+    }
+
+    if (data?.user) {
+      const sbData = await fetchSupabaseProfileAndWallet(data.user.id, data.user);
+      setUser(formatSupabaseUser(data.user, sbData.profile));
+      setProfile(sbData.profile);
+      setWallet(sbData.wallet);
+    }
+  };
+
+  /**
+   * 2. Supabase Sign up with email, password, and metadata
+   */
+  const signup = async (payload: any) => {
+    if (!isSupabaseConfigured()) {
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        const data = await api.signup(payload);
+        setToken(data.token);
+        setUser(data.user);
+        setProfile(data.profile);
+        setWallet(data.wallet);
+        return { requiresEmailConfirmation: false };
       }
 
-      if (data?.user) {
+      throw new Error(
+        'Supabase is not configured on your Vercel deployment. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your Vercel project Environment Variables and redeploy.'
+      );
+    }
+
+    const sb = getSupabaseClient();
+    if (!sb) {
+      throw new Error('Supabase client failed to initialize.');
+    }
+
+    const { data, error } = await sb.auth.signUp({
+      email: payload.email.trim(),
+      password: payload.password,
+      options: {
+        data: {
+          full_name: payload.fullName.trim(),
+          referred_by: payload.referralCode?.trim() || null,
+        },
+        emailRedirectTo: `${window.location.origin}/`,
+      },
+    });
+
+    if (error) {
+      throw new Error(formatSupabaseAuthError(error));
+    }
+
+    if (data?.user) {
+      if (data.session) {
+        // Direct auto-confirm (email confirmations disabled or confirmed)
         const sbData = await fetchSupabaseProfileAndWallet(data.user.id, data.user);
         setUser(formatSupabaseUser(data.user, sbData.profile));
         setProfile(sbData.profile);
         setWallet(sbData.wallet);
+        return { requiresEmailConfirmation: false };
+      } else {
+        // Email confirmation is required by Supabase Auth settings
+        return { requiresEmailConfirmation: true };
       }
-      return;
     }
-
-    // Default Local API fallback
-    const data = await api.login({ email, password: pass });
-    setToken(data.token);
-    setUser(data.user);
-    setProfile(data.profile);
-    setWallet(data.wallet);
-    await refreshUserData();
-  };
-
-  /**
-   * 2. Sign up with email, password, and metadata
-   */
-  const signup = async (payload: any) => {
-    if (isSupabaseConfigured()) {
-      const sb = getSupabaseClient();
-      if (!sb) {
-        throw new Error('Supabase client is not available. Please verify configuration.');
-      }
-
-      const { data, error } = await sb.auth.signUp({
-        email: payload.email.trim(),
-        password: payload.password,
-        options: {
-          data: {
-            full_name: payload.fullName.trim(),
-            referred_by: payload.referralCode?.trim() || null,
-          },
-        },
-      });
-
-      if (error) {
-        throw new Error(formatSupabaseAuthError(error));
-      }
-
-      if (data?.user) {
-        if (data.session) {
-          const sbData = await fetchSupabaseProfileAndWallet(data.user.id, data.user);
-          setUser(formatSupabaseUser(data.user, sbData.profile));
-          setProfile(sbData.profile);
-          setWallet(sbData.wallet);
-          return { requiresEmailConfirmation: false };
-        } else {
-          // If Supabase project has "Confirm email" enabled
-          return { requiresEmailConfirmation: true };
-        }
-      }
-      return { requiresEmailConfirmation: false };
-    }
-
-    // Default Local API fallback
-    const data = await api.signup(payload);
-    setToken(data.token);
-    setUser(data.user);
-    setProfile(data.profile);
-    setWallet(data.wallet);
     return { requiresEmailConfirmation: false };
   };
 
   /**
-   * 3. Sign out
+   * 3. Supabase Sign out
    */
   const logout = async () => {
     if (isSupabaseConfigured()) {
@@ -290,54 +311,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   /**
-   * 4. Request password reset email
+   * 4. Request password reset email via Supabase Auth
    */
   const resetPassword = async (email: string) => {
-    if (isSupabaseConfigured()) {
-      const sb = getSupabaseClient();
-      if (!sb) {
-        throw new Error('Supabase is not configured. Please check your credentials.');
-      }
-
-      const redirectTo = `${window.location.origin}/?type=recovery`;
-
-      const { error } = await sb.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo,
-      });
-
-      if (error) {
-        throw new Error(formatSupabaseAuthError(error));
-      }
-      return;
+    if (!isSupabaseConfigured()) {
+      throw new Error(
+        'Supabase is not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel to enable password reset emails.'
+      );
     }
 
-    // Local simulation fallback
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    const sb = getSupabaseClient();
+    if (!sb) throw new Error('Supabase client is not available.');
+
+    const redirectTo = `${window.location.origin}/?type=recovery`;
+
+    const { error } = await sb.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo,
+    });
+
+    if (error) {
+      throw new Error(formatSupabaseAuthError(error));
+    }
   };
 
   /**
-   * 5. Set new password during recovery
+   * 5. Set new password during recovery via Supabase Auth
    */
   const updatePassword = async (newPassword: string) => {
-    if (isSupabaseConfigured()) {
-      const sb = getSupabaseClient();
-      if (!sb) {
-        throw new Error('Supabase is not configured.');
-      }
-
-      const { error } = await sb.auth.updateUser({
-        password: newPassword,
-      });
-
-      if (error) {
-        throw new Error(formatSupabaseAuthError(error));
-      }
-      setIsPasswordRecovery(false);
-      return;
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase is not configured.');
     }
 
-    // Local simulation fallback
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    const sb = getSupabaseClient();
+    if (!sb) throw new Error('Supabase client is not available.');
+
+    const { error } = await sb.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (error) {
+      throw new Error(formatSupabaseAuthError(error));
+    }
     setIsPasswordRecovery(false);
   };
 
@@ -350,16 +364,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const adminLogout = () => {
     removeAdminToken();
     setAdmin(null);
-  };
-
-  const switchDemoMode = async (mode: 'guest' | 'user' | 'admin') => {
-    if (mode === 'guest') {
-      await logout();
-    } else if (mode === 'user') {
-      await login('user@swiftearn.demo', 'UserPassword123!');
-    } else if (mode === 'admin') {
-      await adminLogin('admin@swiftearn.demo', 'AdminPassword123!');
-    }
   };
 
   return (
@@ -384,7 +388,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         refreshUserData,
         adminLogin,
         adminLogout,
-        switchDemoMode,
       }}
     >
       {children}

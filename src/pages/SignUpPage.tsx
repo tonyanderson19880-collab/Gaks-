@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ArrowRight, AlertCircle, CheckCircle2, Database, Settings } from 'lucide-react';
-import { SupabaseConfigModal } from '../components/common/SupabaseConfigModal';
+import { ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface SignUpPageProps {
   onNavigate: (tab: string) => void;
@@ -9,7 +8,7 @@ interface SignUpPageProps {
 }
 
 export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, initialReferralCode = '' }) => {
-  const { signup, isSupabase } = useAuth();
+  const { signup } = useAuth();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,7 +18,6 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, initialRefer
   const [error, setError] = useState('');
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [configModalOpen, setConfigModalOpen] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,27 +88,6 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, initialRefer
         <p className="mt-1 text-sm text-zinc-600">
           Start earning confirmed rewards from legitimate advertising partners
         </p>
-
-        {/* Supabase Status Pill */}
-        <div className="mt-3 flex justify-center">
-          <button
-            type="button"
-            onClick={() => setConfigModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white border border-zinc-200 shadow-2xs hover:border-[#6C2BD9]/40 transition-colors cursor-pointer"
-          >
-            <Database className="w-3.5 h-3.5 text-[#6C2BD9]" />
-            {isSupabase ? (
-              <span className="text-emerald-700 font-bold flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Supabase Connected
-              </span>
-            ) : (
-              <span className="text-zinc-600">
-                Auth: <strong className="text-[#6C2BD9]">Supabase Ready</strong>
-              </span>
-            )}
-            <Settings className="w-3 h-3 text-zinc-400 ml-0.5" />
-          </button>
-        </div>
       </div>
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md px-4">
@@ -281,12 +258,6 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, initialRefer
           </div>
         </div>
       </div>
-
-      {/* Supabase Config Modal */}
-      <SupabaseConfigModal
-        isOpen={configModalOpen}
-        onClose={() => setConfigModalOpen(false)}
-      />
     </div>
   );
 };

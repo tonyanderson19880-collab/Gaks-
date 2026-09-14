@@ -1,19 +1,17 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ArrowRight, AlertCircle, Database, CheckCircle2, Settings, Mail, Lock } from 'lucide-react';
-import { SupabaseConfigModal } from '../components/common/SupabaseConfigModal';
+import { ArrowRight, AlertCircle, Mail, Lock } from 'lucide-react';
 
 interface LoginPageProps {
   onNavigate: (tab: string) => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
-  const { login, isSupabase } = useAuth();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [configModalOpen, setConfigModalOpen] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,18 +37,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
     }
   };
 
-  const handleFillDemoUser = () => {
-    setEmail('user@swiftearn.demo');
-    setPassword('UserPassword123!');
-    setError('');
-  };
-
-  const handleFillDemoAdmin = () => {
-    setEmail('admin@swiftearn.demo');
-    setPassword('AdminPassword123!');
-    setError('');
-  };
-
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center px-4">
@@ -69,29 +55,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
           Welcome Back
         </h2>
         <p className="mt-1 text-sm text-zinc-600">
-          Sign in to access your confirmed rewards and available balance
+          Sign in to your Swift Earn account to access your wallet
         </p>
-
-        {/* Supabase Connection Status Pill */}
-        <div className="mt-3 flex justify-center">
-          <button
-            type="button"
-            onClick={() => setConfigModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white border border-zinc-200 shadow-2xs hover:border-[#6C2BD9]/40 transition-colors cursor-pointer"
-          >
-            <Database className="w-3.5 h-3.5 text-[#6C2BD9]" />
-            {isSupabase ? (
-              <span className="text-emerald-700 font-bold flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Supabase Connected
-              </span>
-            ) : (
-              <span className="text-zinc-600">
-                Auth: <strong className="text-[#6C2BD9]">Supabase Ready</strong>
-              </span>
-            )}
-            <Settings className="w-3 h-3 text-zinc-400 ml-0.5" />
-          </button>
-        </div>
       </div>
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md px-4">
@@ -99,7 +64,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
           {error && (
             <div className="mb-5 bg-purple-50 border border-purple-200 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-zinc-900">
               <AlertCircle className="w-4 h-4 text-[#6C2BD9] shrink-0 mt-0.5" />
-              <span>{error}</span>
+              <span className="leading-relaxed">{error}</span>
             </div>
           )}
 
@@ -113,6 +78,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                   id="login-email"
                   type="email"
                   required
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
@@ -141,6 +107,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                   id="login-password"
                   type="password"
                   required
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -169,33 +136,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             </div>
           </form>
 
-          {/* Quick Demo Pre-fills when not yet connected to custom Supabase */}
-          {!isSupabase && (
-            <div className="mt-6 pt-5 border-t border-zinc-100 space-y-2">
-              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block text-center">
-                Quick 1-Click Demo Fill:
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  id="btn-demo-fill-user"
-                  type="button"
-                  onClick={handleFillDemoUser}
-                  className="px-2.5 py-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-semibold text-center transition-colors cursor-pointer"
-                >
-                  User: Alex
-                </button>
-                <button
-                  id="btn-demo-fill-admin"
-                  type="button"
-                  onClick={handleFillDemoAdmin}
-                  className="px-2.5 py-2 rounded-lg bg-purple-50 hover:bg-purple-100 text-[#6C2BD9] text-xs font-semibold text-center transition-colors cursor-pointer"
-                >
-                  Admin Account
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Switch to sign up */}
           <div className="mt-6 text-center pt-4 border-t border-zinc-100">
             <span className="text-xs text-zinc-600">Don't have an account? </span>
@@ -209,12 +149,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
           </div>
         </div>
       </div>
-
-      {/* Supabase Config Modal */}
-      <SupabaseConfigModal
-        isOpen={configModalOpen}
-        onClose={() => setConfigModalOpen(false)}
-      />
     </div>
   );
 };
