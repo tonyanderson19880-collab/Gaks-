@@ -206,7 +206,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       throw new Error(
-        'Supabase is not configured on your Vercel deployment. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your Vercel project Environment Variables and redeploy.'
+        'Supabase is not configured on your deployment. Please add NEXT_SUPABASE_URL and NEXT_SUPABASE_ANON_KEY to your Vercel Environment Variables and redeploy.'
       );
     }
 
@@ -247,7 +247,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       throw new Error(
-        'Supabase is not configured on your Vercel deployment. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your Vercel project Environment Variables and redeploy.'
+        'Supabase is not configured on your deployment. Please add NEXT_SUPABASE_URL and NEXT_SUPABASE_ANON_KEY to your Vercel Environment Variables and redeploy.'
       );
     }
 
@@ -316,7 +316,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resetPassword = async (email: string) => {
     if (!isSupabaseConfigured()) {
       throw new Error(
-        'Supabase is not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel to enable password reset emails.'
+        'Supabase is not configured. Please add NEXT_SUPABASE_URL and NEXT_SUPABASE_ANON_KEY to your Vercel Environment Variables to enable password reset emails.'
       );
     }
 

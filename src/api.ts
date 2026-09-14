@@ -74,7 +74,7 @@ async function request<T>(url: string, options: RequestInit = {}, isAdmin = fals
   } catch (err: any) {
     if (err.message && err.message.includes('Invalid path specified in request URL')) {
       throw new Error(
-        'Invalid API endpoint path. On Vercel, Supabase Auth and Database should be used directly. Please configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your Vercel project.'
+        'Invalid API endpoint path. On Vercel, Supabase Auth and Database should be used directly. Please configure NEXT_SUPABASE_URL and NEXT_SUPABASE_ANON_KEY in your Vercel project.'
       );
     }
     throw err;
