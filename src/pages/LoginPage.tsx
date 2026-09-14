@@ -50,6 +50,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center px-4">
+        <button
+          onClick={() => onNavigate('landing')}
+          className="text-xs font-bold text-zinc-500 hover:text-[#6C2BD9] mb-4 inline-flex items-center gap-1 transition-colors cursor-pointer"
+        >
+          ← Back to Home
+        </button>
         {/* Brand Display: Text only */}
         <span className="text-3xl font-extrabold text-[#6C2BD9] tracking-tight block">
           Swift Earn

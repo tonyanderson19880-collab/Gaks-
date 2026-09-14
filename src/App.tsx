@@ -20,13 +20,13 @@ import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { RewardOpportunity } from './types';
 
 const MainAppContent: React.FC = () => {
-  const { user, admin } = useAuth();
+  const { user, isLoading } = useAuth();
   const [currentTab, setCurrentTab] = useState<string>('landing');
   const [initialRefCode, setInitialRefCode] = useState<string>('');
   const [activeAdOpportunity, setActiveAdOpportunity] = useState<RewardOpportunity | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
-  // Check URL query parameters for referral or direct links on mount
+  // Check URL query parameters for referral links on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
@@ -38,12 +38,22 @@ const MainAppContent: React.FC = () => {
     }
   }, [user]);
 
-  // When user signs in, if on landing/login/signup, route to dashboard
+  // When user successfully signs in or registers, direct them into the website (dashboard)
   useEffect(() => {
     if (user && (currentTab === 'landing' || currentTab === 'login' || currentTab === 'signup')) {
       setCurrentTab('dashboard');
     }
   }, [user]);
+
+  // When user is not logged in, prevent direct access to protected in-app tabs
+  useEffect(() => {
+    if (!isLoading && !user) {
+      const inAppTabs = ['dashboard', 'earn', 'wallet', 'withdraw', 'referrals', 'profile'];
+      if (inAppTabs.includes(currentTab)) {
+        setCurrentTab('landing');
+      }
+    }
+  }, [user, isLoading, currentTab]);
 
   // Handle navigation
   const handleNavigate = (tab: string) => {
@@ -69,7 +79,7 @@ const MainAppContent: React.FC = () => {
       case 'landing':
         return (
           <LandingPage
-            onStartEarning={() => handleNavigate(user ? 'earn' : 'signup')}
+            onStartEarning={() => handleNavigate(user ? 'dashboard' : 'signup')}
             onNavigate={handleNavigate}
           />
         );
@@ -109,16 +119,26 @@ const MainAppContent: React.FC = () => {
       default:
         return (
           <LandingPage
-            onStartEarning={() => handleNavigate(user ? 'earn' : 'signup')}
+            onStartEarning={() => handleNavigate(user ? 'dashboard' : 'signup')}
             onNavigate={handleNavigate}
           />
         );
     }
   };
 
+  // Determine if bottom navigation should be shown (only when user is logged in on in-app pages)
+  const showBottomNav =
+    Boolean(user) &&
+    currentTab !== 'admin' &&
+    currentTab !== 'landing' &&
+    currentTab !== 'signup' &&
+    currentTab !== 'login' &&
+    !currentTab.startsWith('legal-') &&
+    currentTab !== 'help';
+
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-[#0F172A] selection:bg-[#B8F500] selection:text-[#0F172A]">
-      {/* 1. Top Header (unless on dedicated admin view) */}
+      {/* 1. Top Header with centered Swift Earn */}
       {currentTab !== 'admin' && (
         <Header
           currentTab={currentTab}
@@ -127,17 +147,17 @@ const MainAppContent: React.FC = () => {
         />
       )}
 
-      {/* 3. Main Page Content */}
+      {/* 2. Main Page Content */}
       <main className="flex-1">
         {renderCurrentPage()}
       </main>
 
-      {/* 4. Bottom Navigation Bar */}
-      {currentTab !== 'admin' && (
+      {/* 3. Bottom Navigation Bar: Only visible to authenticated users inside the app */}
+      {showBottomNav && (
         <BottomNav currentTab={currentTab} setCurrentTab={handleNavigate} />
       )}
 
-      {/* 6. Notifications Slide-over/Modal */}
+      {/* 4. Notifications Slide-over/Modal */}
       <NotificationModal
         isOpen={notificationsOpen}
         onClose={() => setNotificationsOpen(false)}
@@ -147,7 +167,7 @@ const MainAppContent: React.FC = () => {
         }}
       />
 
-      {/* 7. Rewarded Ad Experience Modal with Server Cryptographic Verification */}
+      {/* 5. Rewarded Ad Experience Modal */}
       {activeAdOpportunity && (
         <AdExperienceModal
           opportunity={activeAdOpportunity}
