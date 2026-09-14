@@ -16,6 +16,8 @@ export interface Profile {
   bank_name?: string;
   account_number?: string;
   account_name?: string;
+  referral_code?: string;
+  referred_by?: string;
   email_notifications: boolean;
   reward_alerts: boolean;
   created_at: string;

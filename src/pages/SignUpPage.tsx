@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ArrowRight, Lock, Mail, User, ShieldCheck, AlertCircle, CheckCircle } from 'lucide-react';
+import { ArrowRight, AlertCircle, CheckCircle2, Database, Settings } from 'lucide-react';
+import { SupabaseConfigModal } from '../components/common/SupabaseConfigModal';
 
 interface SignUpPageProps {
   onNavigate: (tab: string) => void;
@@ -8,7 +9,7 @@ interface SignUpPageProps {
 }
 
 export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, initialReferralCode = '' }) => {
-  const { signup } = useAuth();
+  const { signup, isSupabase } = useAuth();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,11 +17,14 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, initialRefer
   const [referralCode, setReferralCode] = useState(initialReferralCode);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [error, setError] = useState('');
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [configModalOpen, setConfigModalOpen] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccessNotice(null);
 
     if (!fullName.trim()) {
       setError('Please enter your full name.');
@@ -45,7 +49,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, initialRefer
 
     try {
       setLoading(true);
-      await signup({
+      const res = await signup({
         fullName,
         email,
         password,
@@ -53,7 +57,12 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, initialRefer
         referralCode: referralCode.trim() || undefined,
         agreeTerms,
       });
-      onNavigate('dashboard');
+
+      if (res?.requiresEmailConfirmation) {
+        setSuccessNotice('Account created successfully! We sent a confirmation link to your email. Please verify your email before logging in.');
+      } else {
+        onNavigate('dashboard');
+      }
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please check details and try again.');
     } finally {
@@ -70,7 +79,8 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, initialRefer
         >
           ← Back to Home
         </button>
-        {/* Brand Display: Text only */}
+
+        {/* Brand Display */}
         <span className="text-3xl font-extrabold text-[#6C2BD9] tracking-tight block">
           Swift Earn
         </span>
@@ -80,9 +90,30 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, initialRefer
         <p className="mt-1 text-sm text-zinc-600">
           Start earning confirmed rewards from legitimate advertising partners
         </p>
+
+        {/* Supabase Status Pill */}
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setConfigModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white border border-zinc-200 shadow-2xs hover:border-[#6C2BD9]/40 transition-colors cursor-pointer"
+          >
+            <Database className="w-3.5 h-3.5 text-[#6C2BD9]" />
+            {isSupabase ? (
+              <span className="text-emerald-700 font-bold flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Supabase Connected
+              </span>
+            ) : (
+              <span className="text-zinc-600">
+                Auth: <strong className="text-[#6C2BD9]">Supabase Ready</strong>
+              </span>
+            )}
+            <Settings className="w-3 h-3 text-zinc-400 ml-0.5" />
+          </button>
+        </div>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4">
+      <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md px-4">
         <div className="bg-white py-8 px-6 sm:px-10 rounded-3xl shadow-sm border border-zinc-200">
           {error && (
             <div className="mb-5 bg-purple-50 border border-purple-200 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-zinc-900">
@@ -91,22 +122,36 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, initialRefer
             </div>
           )}
 
+          {successNotice && (
+            <div className="mb-5 bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-emerald-900">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">{successNotice}</p>
+                <button
+                  type="button"
+                  onClick={() => onNavigate('login')}
+                  className="mt-2 text-xs font-bold text-[#6C2BD9] underline block"
+                >
+                  Proceed to Log In →
+                </button>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-zinc-700 mb-1">
                 Full Name
               </label>
-              <div className="relative">
-                <input
-                  id="signup-full-name"
-                  type="text"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="e.g. Alex Morgan"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 focus:outline-hidden focus:border-[#6C2BD9] focus:ring-2 focus:ring-[#6C2BD9]/20 text-sm"
-                />
-              </div>
+              <input
+                id="signup-full-name"
+                type="text"
+                required
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="e.g. Alex Morgan"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 focus:outline-hidden focus:border-[#6C2BD9] focus:ring-2 focus:ring-[#6C2BD9]/20 text-sm"
+              />
             </div>
 
             <div>
@@ -186,7 +231,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, initialRefer
                   <button
                     type="button"
                     onClick={() => onNavigate('legal-terms')}
-                    className="text-[#6C2BD9] font-bold hover:underline"
+                    className="text-[#6C2BD9] font-bold hover:underline cursor-pointer"
                   >
                     Terms and Conditions
                   </button>{' '}
@@ -194,7 +239,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, initialRefer
                   <button
                     type="button"
                     onClick={() => onNavigate('legal-privacy')}
-                    className="text-[#6C2BD9] font-bold hover:underline"
+                    className="text-[#6C2BD9] font-bold hover:underline cursor-pointer"
                   >
                     Privacy Policy
                   </button>
@@ -209,7 +254,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, initialRefer
                 id="btn-create-account"
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 px-4 rounded-xl bg-[#6C2BD9] hover:bg-[#5821B0] text-white font-extrabold text-sm shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full py-3.5 px-4 rounded-xl bg-[#6C2BD9] hover:bg-[#5821B0] text-white font-extrabold text-sm shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 {loading ? (
                   <span>Creating Account...</span>
@@ -229,13 +274,19 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, initialRefer
             <button
               id="link-to-login"
               onClick={() => onNavigate('login')}
-              className="text-xs font-bold text-[#6C2BD9] hover:underline"
+              className="text-xs font-bold text-[#6C2BD9] hover:underline cursor-pointer"
             >
               Log in
             </button>
           </div>
         </div>
       </div>
+
+      {/* Supabase Config Modal */}
+      <SupabaseConfigModal
+        isOpen={configModalOpen}
+        onClose={() => setConfigModalOpen(false)}
+      />
     </div>
   );
 };

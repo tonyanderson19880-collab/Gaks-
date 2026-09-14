@@ -8,6 +8,7 @@ import { AdExperienceModal } from './components/rewards/AdExperienceModal';
 import { LandingPage } from './pages/LandingPage';
 import { SignUpPage } from './pages/SignUpPage';
 import { LoginPage } from './pages/LoginPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { EarnPage } from './pages/EarnPage';
 import { WalletPage } from './pages/WalletPage';
@@ -20,7 +21,7 @@ import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { RewardOpportunity } from './types';
 
 const MainAppContent: React.FC = () => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isPasswordRecovery } = useAuth();
   const [currentTab, setCurrentTab] = useState<string>('landing');
   const [initialRefCode, setInitialRefCode] = useState<string>('');
   const [activeAdOpportunity, setActiveAdOpportunity] = useState<RewardOpportunity | null>(null);
@@ -38,22 +39,31 @@ const MainAppContent: React.FC = () => {
     }
   }, [user]);
 
-  // When user successfully signs in or registers, direct them into the website (dashboard)
+  // If Supabase sends recovery event or URL has recovery tokens, show password reset page
   useEffect(() => {
-    if (user && (currentTab === 'landing' || currentTab === 'login' || currentTab === 'signup')) {
-      setCurrentTab('dashboard');
+    if (isPasswordRecovery) {
+      setCurrentTab('reset-password');
     }
-  }, [user]);
+  }, [isPasswordRecovery]);
 
-  // When user is not logged in, prevent direct access to protected in-app tabs
+  // Protected Pages: If user is not logged in and tries to access protected pages, redirect to Login
   useEffect(() => {
     if (!isLoading && !user) {
-      const inAppTabs = ['dashboard', 'earn', 'wallet', 'withdraw', 'referrals', 'profile'];
-      if (inAppTabs.includes(currentTab)) {
-        setCurrentTab('landing');
+      const protectedTabs = ['dashboard', 'earn', 'wallet', 'withdraw', 'referrals', 'profile'];
+      if (protectedTabs.includes(currentTab)) {
+        setCurrentTab('login');
       }
     }
   }, [user, isLoading, currentTab]);
+
+  // If a logged-in user visits Login or Sign Up, redirect them to the dashboard
+  useEffect(() => {
+    if (!isLoading && user && !isPasswordRecovery) {
+      if (currentTab === 'login' || currentTab === 'signup') {
+        setCurrentTab('dashboard');
+      }
+    }
+  }, [user, isLoading, currentTab, isPasswordRecovery]);
 
   // Handle navigation
   const handleNavigate = (tab: string) => {
@@ -70,7 +80,7 @@ const MainAppContent: React.FC = () => {
   };
 
   const handleRewardClaimed = () => {
-    // Wallet is updated in AuthContext
+    // Wallet is refreshed in AuthContext
   };
 
   // Render current view
@@ -87,6 +97,10 @@ const MainAppContent: React.FC = () => {
         return <SignUpPage onNavigate={handleNavigate} initialReferralCode={initialRefCode} />;
       case 'login':
         return <LoginPage onNavigate={handleNavigate} />;
+      case 'forgot-password':
+        return <ResetPasswordPage mode="request" onNavigate={handleNavigate} />;
+      case 'reset-password':
+        return <ResetPasswordPage mode="update" onNavigate={handleNavigate} />;
       case 'dashboard':
         return (
           <DashboardPage
@@ -133,6 +147,8 @@ const MainAppContent: React.FC = () => {
     currentTab !== 'landing' &&
     currentTab !== 'signup' &&
     currentTab !== 'login' &&
+    currentTab !== 'forgot-password' &&
+    currentTab !== 'reset-password' &&
     !currentTab.startsWith('legal-') &&
     currentTab !== 'help';
 

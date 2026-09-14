@@ -9,6 +9,11 @@ interface ProfilePageProps {
 export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
   const { user, profile, logout } = useAuth();
 
+  const handleLogout = async () => {
+    await logout();
+    onNavigate('login');
+  };
+
   if (!user) {
     return (
       <div className="bg-[#F8FAFC] min-h-screen pb-24 md:pb-12 pt-12">
@@ -78,7 +83,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
 
           <button
             id="btn-profile-logout"
-            onClick={logout}
+            onClick={handleLogout}
             className="px-5 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold text-xs transition-colors flex items-center gap-2 cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
