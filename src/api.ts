@@ -641,6 +641,24 @@ export const api = {
       true
     ),
   getAdminFraudEvents: () => request<{ fraudEvents: any[] }>('/api/admin/fraud-events', {}, true),
+  reviewAdminFraudEvent: (id: string, resolution: string, resolved: boolean) =>
+    request<{ success: boolean; event: any }>(
+      `/api/admin/fraud-events/${id}/resolve`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ resolution, resolved }),
+      },
+      true
+    ),
+  updateAdminUserStatus: (userId: string, status: string) =>
+    request<{ success: boolean; user: any }>(
+      `/api/admin/users/${userId}/status`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ status }),
+      },
+      true
+    ),
   getAdminSettings: () => request<{ config: SystemConfig }>('/api/admin/settings', {}, true),
   updateAdminSettings: (body: Partial<SystemConfig>) =>
     request<{ config: SystemConfig }>(

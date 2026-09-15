@@ -841,6 +841,33 @@ async function startServer() {
     res.json({ fraudEvents });
   });
 
+  app.post('/api/admin/fraud-events/:id/resolve', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    const eventId = req.params.id;
+    const { resolution, resolved } = req.body;
+    const admin = req.admin!;
+    try {
+      const updated = dbManager.updateFraudEventResolution(eventId, resolution, resolved !== false, admin.id);
+      res.json({ success: true, event: updated });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to update fraud event' });
+    }
+  });
+
+  app.post('/api/admin/users/:id/status', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    const userId = req.params.id;
+    const { status } = req.body;
+    const admin = req.admin!;
+    if (!['active', 'restricted', 'suspended', 'flagged'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid account status' });
+    }
+    try {
+      const updatedUser = dbManager.updateUserAccountStatus(userId, status, admin.id);
+      res.json({ success: true, user: updatedUser });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to update user status' });
+    }
+  });
+
   app.get('/api/admin/settings', requireAdminAuth, (req: AuthenticatedRequest, res) => {
     const config = dbManager.getConfig();
     res.json({ config });

@@ -921,47 +921,117 @@ export const AdminDashboardPage: React.FC = () => {
 
         {/* Tab 4: Security & Fraud Audit Logs */}
         {activeTab === 'security' && (
-          <div className="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 space-y-4">
+          <div className="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-base font-extrabold text-white">Fraud & Security Audit Trail</h3>
-                <p className="text-xs text-zinc-400">Real-time system telemetry, token checks, and anti-cheat detections</p>
+                <h3 className="text-base font-extrabold text-white">Fraud & Security Telemetry</h3>
+                <p className="text-xs text-zinc-400">Real-time anti-abuse detections, risk scores, and security event logs</p>
               </div>
+              <span className="bg-red-950 text-red-200 text-xs font-bold px-3 py-1 rounded-xl border border-red-800">
+                Total Incidents: {fraudEvents.length}
+              </span>
             </div>
 
-            <div className="divide-y divide-zinc-800">
-              {auditLogs.length === 0 ? (
-                <div className="py-12 text-center text-xs text-zinc-500">No security incidents logged.</div>
-              ) : (
-                auditLogs.map((log) => (
-                  <div key={log.id} className="py-3 flex items-start justify-between gap-4 text-xs">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                            (log as any).severity === 'HIGH'
-                              ? 'bg-red-900 text-red-100'
-                              : (log as any).severity === 'MEDIUM'
-                              ? 'bg-amber-900 text-amber-100'
-                              : 'bg-zinc-800 text-zinc-300'
-                          }`}
-                        >
-                          {(log as any).severity || 'INFO'}
-                        </span>
-                        <span className="font-bold text-white">{log.action || (log as any).event_type}</span>
-                        <span className="text-[11px] font-mono text-zinc-400">
-                          {new Date(log.created_at).toLocaleTimeString()}
-                        </span>
-                      </div>
-                      <p className="text-zinc-400 mt-1">{JSON.stringify(log.details || {})}</p>
-                      <span className="text-[10px] text-zinc-500 font-mono">
-                        Admin: {log.admin_id || 'system'} • Target: {log.target_resource} ({log.target_id})
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+            {fraudEvents.length === 0 ? (
+              <div className="py-12 text-center text-xs text-zinc-500">No fraud security events recorded yet.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-zinc-300">
+                  <thead className="bg-zinc-950 text-zinc-400 font-bold uppercase tracking-wider text-[10px]">
+                    <tr>
+                      <th className="p-3">Event ID / Type</th>
+                      <th className="p-3">Severity</th>
+                      <th className="p-3">Risk Score</th>
+                      <th className="p-3">User ID</th>
+                      <th className="p-3">Reason / Description</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3">Time</th>
+                      <th className="p-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800">
+                    {fraudEvents.map((evt) => (
+                      <tr key={evt.id} className="hover:bg-zinc-800/50">
+                        <td className="p-3 font-mono text-zinc-400">
+                          <div className="font-bold text-white">{evt.id}</div>
+                          <span className="text-[10px] text-[#B8F500]">{evt.event_type || 'suspicious_activity'}</span>
+                        </td>
+                        <td className="p-3">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                              evt.severity === 'critical' || evt.severity === 'high'
+                                ? 'bg-red-900 text-red-100'
+                                : evt.severity === 'medium'
+                                ? 'bg-amber-900 text-amber-100'
+                                : 'bg-zinc-800 text-zinc-300'
+                            }`}
+                          >
+                            {evt.severity || 'low'}
+                          </span>
+                        </td>
+                        <td className="p-3 font-mono font-bold text-amber-400">
+                          {evt.risk_score} / 100
+                        </td>
+                        <td className="p-3 font-mono text-xs text-zinc-300">
+                          {evt.user_id || 'Anonymous'}
+                        </td>
+                        <td className="p-3 max-w-xs truncate text-zinc-300" title={evt.flag_reason || evt.description}>
+                          {evt.flag_reason || evt.description}
+                        </td>
+                        <td className="p-3">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              evt.resolved
+                                ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                : 'bg-amber-950 text-amber-300 border border-amber-800'
+                            }`}
+                          >
+                            {evt.resolved ? 'Resolved' : 'Pending Review'}
+                          </span>
+                        </td>
+                        <td className="p-3 font-mono text-[11px] text-zinc-400">
+                          {new Date(evt.created_at).toLocaleTimeString()}
+                        </td>
+                        <td className="p-3 text-right space-x-2">
+                          {!evt.resolved && (
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await api.reviewAdminFraudEvent(evt.id, 'Reviewed and cleared by admin', true);
+                                  showToast('Fraud event marked resolved.');
+                                  const res = await api.getAdminFraudEvents();
+                                  setFraudEvents(res.fraudEvents || []);
+                                } catch (err: any) {
+                                  showError(err.message || 'Failed to resolve fraud event');
+                                }
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-[10px] cursor-pointer"
+                            >
+                              Resolve
+                            </button>
+                          )}
+                          {evt.user_id && (
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await api.updateAdminUserStatus(evt.user_id!, 'restricted');
+                                  showToast(`User ${evt.user_id} restricted.`);
+                                } catch (err: any) {
+                                  showError(err.message || 'Failed to restrict user');
+                                }
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-red-900 hover:bg-red-800 text-red-100 font-bold text-[10px] cursor-pointer"
+                            >
+                              Restrict User
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 

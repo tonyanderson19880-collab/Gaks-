@@ -2,7 +2,7 @@ export interface User {
   id: string;
   email: string;
   password_hash: string;
-  status: 'active' | 'suspended' | 'flagged' | 'pending_verification';
+  status: 'active' | 'restricted' | 'suspended' | 'flagged' | 'pending_verification';
   referral_code: string;
   referred_by_user_id?: string | null;
   created_at: string;
@@ -141,11 +141,20 @@ export interface FraudEvent {
   id: string;
   user_id?: string;
   session_id?: string;
+  event_type?: string;
+  severity?: 'low' | 'medium' | 'high' | 'critical';
+  description?: string;
   risk_score: number;
   flag_reason: string;
   details?: Record<string, any>;
+  metadata?: Record<string, any>;
+  ip_hash?: string;
+  user_agent_hash?: string;
   resolved: boolean;
   created_at: string;
+  reviewed_at?: string;
+  reviewed_by?: string;
+  resolution?: string;
 }
 
 export interface AdminUser {

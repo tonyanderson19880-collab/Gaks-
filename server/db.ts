@@ -1369,26 +1369,39 @@ class DatabaseManager {
   recordFraudEvent(params: {
     userId?: string;
     sessionId?: string;
+    eventType?: string;
+    severity?: 'low' | 'medium' | 'high' | 'critical';
+    description?: string;
     riskScore: number;
     flagReason: string;
     details?: any;
+    metadata?: any;
+    ipHash?: string;
+    userAgentHash?: string;
   }): FraudEvent {
+    const severity = params.severity || (params.riskScore >= 80 ? 'high' : params.riskScore >= 50 ? 'medium' : 'low');
     const event: FraudEvent = {
       id: `frd_${crypto.randomBytes(8).toString('hex')}`,
       user_id: params.userId,
       session_id: params.sessionId,
+      event_type: params.eventType || 'suspicious_activity',
+      severity,
+      description: params.description || params.flagReason,
       risk_score: params.riskScore,
       flag_reason: params.flagReason,
       details: params.details,
+      metadata: params.metadata || params.details,
+      ip_hash: params.ipHash,
+      user_agent_hash: params.userAgentHash,
       resolved: false,
       created_at: new Date().toISOString(),
     };
     this.db.fraud_events.push(event);
 
-    if (params.userId && params.riskScore >= 75) {
+    if (params.userId && params.riskScore >= 85) {
       const user = this.findUserById(params.userId);
       if (user && user.status === 'active') {
-        user.status = 'flagged';
+        user.status = 'restricted';
       }
     }
 
@@ -1400,6 +1413,47 @@ class DatabaseManager {
     return [...this.db.fraud_events].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
+  }
+
+  updateFraudEventResolution(eventId: string, resolution: string, resolved: boolean, adminId: string): FraudEvent {
+    const event = this.db.fraud_events.find((e) => e.id === eventId);
+    if (!event) throw new Error('Fraud event not found');
+
+    event.resolved = resolved;
+    event.resolution = resolution;
+    event.reviewed_at = new Date().toISOString();
+    event.reviewed_by = adminId;
+
+    this.addAuditLog({
+      admin_id: adminId,
+      action: 'UPDATE_FRAUD_EVENT',
+      target_resource: 'fraud_events',
+      target_id: eventId,
+      details: { resolution, resolved },
+    });
+
+    this.persist();
+    return event;
+  }
+
+  updateUserAccountStatus(userId: string, status: 'active' | 'restricted' | 'suspended' | 'flagged', adminId: string): User {
+    const user = this.findUserById(userId);
+    if (!user) throw new Error('User not found');
+
+    const oldStatus = user.status;
+    user.status = status;
+    user.updated_at = new Date().toISOString();
+
+    this.addAuditLog({
+      admin_id: adminId,
+      action: 'UPDATE_USER_ACCOUNT_STATUS',
+      target_resource: 'users',
+      target_id: userId,
+      details: { old_status: oldStatus, new_status: status },
+    });
+
+    this.persist();
+    return user;
   }
 
   // Admin Users & Auth
