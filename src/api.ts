@@ -594,7 +594,6 @@ export const api = {
       },
       true
     ),
-  getAdminFraudEvents: () => request<{ fraudEvents: any[] }>('/api/admin/fraud-events', {}, true),
   getAdminWithdrawals: () => request<{ withdrawals: Withdrawal[] }>('/api/admin/withdrawals', {}, true),
   reviewWithdrawal: (id: string, body: { status: string; adminNotes: string }) =>
     request<{ success: boolean; withdrawal: Withdrawal }>(

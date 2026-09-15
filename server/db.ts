@@ -343,7 +343,9 @@ function getInitialSeedData(): DatabaseSchema {
         id: 'ref_001',
         referrer_user_id: user1Id,
         referred_user_id: user2Id,
+        referral_code: 'SE-DEMO1',
         status: 'rewarded',
+        qualification_status: 'completed',
         reward_amount: 50.0,
         created_at: new Date(Date.now() - 7 * 86400000).toISOString(),
         rewarded_at: new Date(Date.now() - 7 * 86400000).toISOString(),
@@ -1283,21 +1285,12 @@ class DatabaseManager {
   }
 
   logFraudEvent(userId: string | undefined, riskScore: number, reason: string, details: any) {
-    const event: FraudEvent = {
-      id: `fraud_${crypto.randomBytes(6).toString('hex')}`,
-      user_id: userId,
-      risk_score: riskScore,
-      flag_reason: reason,
+    this.recordFraudEvent({
+      userId,
+      riskScore,
+      flagReason: reason,
       details,
-      resolved: false,
-      created_at: new Date().toISOString(),
-    };
-    this.db.fraud_events.push(event);
-    this.persist();
-  }
-
-  getFraudEvents(): FraudEvent[] {
-    return [...this.db.fraud_events].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    });
   }
 
   adminUpdateReferralStatus(referralId: string, status: string, qualificationStatus: string, adminId: string): Referral {
@@ -1315,13 +1308,11 @@ class DatabaseManager {
     }
 
     this.addAuditLog({
-      id: `audit_${crypto.randomBytes(8).toString('hex')}`,
       admin_id: adminId,
       action: 'UPDATE_REFERRAL_STATUS',
       target_resource: 'referrals',
       target_id: referralId,
       details: { old_status: oldStatus, new_status: status, qualification_status: r.qualification_status },
-      created_at: new Date().toISOString(),
     });
 
     this.persist();
