@@ -147,17 +147,17 @@ export const ReferralsPage: React.FC<ReferralsPageProps> = ({ onNavigate }) => {
               <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">
                 Unique Referral Link
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <input
                   type="text"
                   readOnly
                   value={referralLink}
-                  className="bg-white px-3 py-2 rounded-xl border border-zinc-300 text-xs font-mono text-zinc-800 flex-1 focus:outline-hidden"
+                  className="bg-white px-3 py-2 rounded-xl border border-zinc-300 text-xs font-mono text-zinc-800 flex-1 min-w-0 focus:outline-hidden truncate"
                 />
                 <button
                   id="btn-copy-referral-link"
                   onClick={handleCopyLink}
-                  className="px-4 py-2 rounded-xl bg-[#6C2BD9] hover:bg-[#5821B0] text-white text-xs font-bold transition-colors flex items-center gap-1.5 shrink-0"
+                  className="px-3 sm:px-4 py-2 rounded-xl bg-[#6C2BD9] hover:bg-[#5821B0] text-white text-xs font-bold transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
                 >
                   {copiedLink ? <Check className="w-3.5 h-3.5 text-[#B8F500]" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copiedLink ? 'Copied' : 'Copy Link'}</span>
@@ -170,17 +170,17 @@ export const ReferralsPage: React.FC<ReferralsPageProps> = ({ onNavigate }) => {
               <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">
                 Unique Referral Code
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <input
                   type="text"
                   readOnly
                   value={referralCode}
-                  className="bg-white px-3 py-2 rounded-xl border border-zinc-300 text-sm font-mono font-bold text-zinc-900 flex-1 focus:outline-hidden"
+                  className="bg-white px-3 py-2 rounded-xl border border-zinc-300 text-sm font-mono font-bold text-zinc-900 flex-1 min-w-0 focus:outline-hidden truncate"
                 />
                 <button
                   id="btn-copy-referral-code"
                   onClick={handleCopyCode}
-                  className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-black text-[#B8F500] text-xs font-bold transition-colors flex items-center gap-1.5 shrink-0"
+                  className="px-3 sm:px-4 py-2 rounded-xl bg-zinc-900 hover:bg-black text-[#B8F500] text-xs font-bold transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
                 >
                   {copiedCode ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copiedCode ? 'Copied' : 'Copy Code'}</span>
