@@ -410,7 +410,7 @@ BEGIN
 
   -- 3. If referred by a valid code, record referral
   IF ref_by IS NOT NULL AND LENGTH(TRIM(ref_by)) > 0 THEN
-    SELECT * INTO referrer_record FROM public.profiles WHERE referral_code = TRIM(ref_by) LIMIT 1;
+    SELECT * INTO referrer_record FROM public.profiles WHERE upper(referral_code) = upper(TRIM(ref_by)) LIMIT 1;
     IF referrer_record.id IS NOT NULL AND referrer_record.id <> new.id THEN
       INSERT INTO public.referrals (
         referrer_id,

@@ -135,7 +135,7 @@ export const formatSupabaseAuthError = (error: any): string => {
     return 'Password is too weak. It must contain at least 6 characters.';
   }
   if (lower.includes('rate limit') || lower.includes('over_email_send_rate_limit')) {
-    return 'Rate limit reached. Please wait a few minutes before trying again.';
+    return 'Security limit reached: Too many signup attempts. Supabase restricts free-tier signups to 3 emails per hour. To test multiple accounts, please disable "Confirm email" in your Supabase Authentication settings, or try again later.';
   }
   if (lower.includes('network') || lower.includes('failed to fetch')) {
     return 'Network connection error. Please verify your internet connection and Supabase URL accessibility.';
