@@ -320,30 +320,35 @@ export const api = {
     providerTransactionId?: string;
   }> => {
     if (isSupabaseConfigured()) {
-      const opp =
-        FALLBACK_OPPORTUNITIES.find((o) => o.id === body.opportunityId) || {
-          id: body.opportunityId || 'opp-default',
-          provider: body.provider || 'Partner',
-          title: body.title || 'Engagement Reward',
-          reward_points: body.amount || 50,
+      try {
+        const opp =
+          FALLBACK_OPPORTUNITIES.find((o) => o.id === body.opportunityId) || {
+            id: body.opportunityId || 'opp-default',
+            provider: body.provider || 'Partner',
+            title: body.title || 'Engagement Reward',
+            reward_points: body.amount || 50,
+          };
+
+        const result = await supabaseDb.creditReward(
+          sessionId,
+          opp.id,
+          body.amount || opp.reward_points,
+          body.provider || opp.provider,
+          body.title || (opp as any).title || 'Campaign Reward'
+        );
+
+        return {
+          success: true,
+          message: result.message || 'Reward credited to wallet',
+          pointsEarned: result.pointsEarned || opp.reward_points,
+          newBalance: result.newBalance,
+          transactionReference: result.transactionReference,
+          providerTransactionId: result.transactionReference,
         };
-
-      const result = await supabaseDb.creditReward(
-        sessionId,
-        opp.id,
-        body.amount || opp.reward_points,
-        body.provider || opp.provider,
-        body.title || (opp as any).title || 'Campaign Reward'
-      );
-
-      return {
-        success: true,
-        message: result.message || 'Reward credited to wallet',
-        pointsEarned: result.pointsEarned || opp.reward_points,
-        newBalance: result.newBalance,
-        transactionReference: result.transactionReference,
-        providerTransactionId: result.transactionReference,
-      };
+      } catch (err) {
+        console.warn('Supabase creditReward RPC failed, falling back to Express API:', err);
+        // Fallback to Express backend request below
+      }
     }
 
     return request<{

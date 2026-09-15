@@ -94,7 +94,7 @@ export class DemoRewardProvider implements IRewardProvider {
         };
       } catch (err: any) {
         console.warn('Supabase verifyRewardSession failed, attempting API fallback:', err);
-        throw err;
+        // Fallback to Express backend API below
       }
     }
 

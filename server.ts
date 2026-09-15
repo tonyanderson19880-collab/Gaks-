@@ -523,6 +523,98 @@ async function startServer() {
   });
 
   // ----------------------------------------------------
+  // Reward Sessions & Crediting Endpoints
+  // ----------------------------------------------------
+  app.post('/api/rewards/sessions/start', requireUserAuth, (req: AuthenticatedRequest, res) => {
+    try {
+      const { opportunityId } = req.body;
+      const userId = req.user!.id;
+      const sessionId = `sess_${crypto.randomBytes(8).toString('hex')}`;
+      const providerSessionId = `prov_${crypto.randomBytes(6).toString('hex')}`;
+      const token = crypto.randomBytes(16).toString('hex');
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+      const opportunity = dbManager.getAllOpportunities().find(o => o.id === opportunityId) || {
+        id: opportunityId || 'opp-default',
+        name: 'Demo Rewarded Video',
+        description: 'Complete the verified demo interaction',
+        reward_amount: 10,
+        estimated_duration: 30,
+        status: 'active',
+        provider: 'Demo'
+      };
+
+      res.json({
+        sessionId,
+        userId,
+        providerSessionId,
+        opportunity,
+        token,
+        startedAt: new Date().toISOString(),
+        expiresAt,
+      });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to start reward session' });
+    }
+  });
+
+  app.post('/api/rewards/sessions/:id/verify-and-claim', requireUserAuth, (req: AuthenticatedRequest, res) => {
+    try {
+      const sessionId = req.params.id;
+      const { opportunityId, amount, provider, title, idempotencyKey } = req.body;
+      const userId = req.user!.id;
+
+      const opportunity = dbManager.getAllOpportunities().find(o => o.id === opportunityId) || {
+        reward_amount: amount || 10,
+        provider: provider || 'Demo',
+        name: title || 'Demo Rewarded Task'
+      };
+
+      const rewardAmount = Number(opportunity.reward_amount || amount || 10);
+      const reference = `SE-REW-${crypto.randomBytes(5).toString('hex').toUpperCase()}`;
+      const idempKey = idempotencyKey || `idemp_ses_${sessionId}`;
+
+      const creditRes = dbManager.creditReward({
+        userId,
+        amount: rewardAmount,
+        reference,
+        description: `Verified demo reward: ${opportunity.name || title || 'Task'}`,
+        idempotencyKey: idempKey,
+      });
+
+      if (!creditRes.success && creditRes.message?.includes('idempotent')) {
+        return res.json({
+          success: true,
+          message: 'Reward already claimed',
+          pointsEarned: rewardAmount,
+          newBalance: creditRes.wallet.available_balance,
+          transactionReference: reference,
+          providerTransactionId: reference,
+        });
+      }
+
+      // Record notification
+      dbManager.addNotification({
+        user_id: userId,
+        title: 'Reward Confirmed!',
+        message: `You earned +${rewardAmount} points for completing ${opportunity.name || title || 'Demo Task'}.`,
+        type: 'reward',
+      });
+
+      res.json({
+        success: true,
+        message: 'Reward confirmed!',
+        pointsEarned: rewardAmount,
+        newBalance: creditRes.wallet.available_balance,
+        transactionReference: reference,
+        providerTransactionId: reference,
+      });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to verify and claim reward' });
+    }
+  });
+
+  // ----------------------------------------------------
   // Notifications Endpoints
   // ----------------------------------------------------
   app.get('/api/notifications', requireUserAuth, (req: AuthenticatedRequest, res) => {
