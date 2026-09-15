@@ -262,7 +262,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       options: {
         data: {
           full_name: payload.fullName.trim(),
-          referred_by: payload.referralCode?.trim() || null,
+          referred_by: payload.referralCode?.trim().toUpperCase() || null,
         },
         emailRedirectTo: `${window.location.origin}/`,
       },
