@@ -13,7 +13,20 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, initialRefer
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [referralCode, setReferralCode] = useState(initialReferralCode);
+  const [referralCode, setReferralCode] = useState(
+    initialReferralCode || localStorage.getItem('swift_ref_code') || ''
+  );
+
+  useEffect(() => {
+    if (initialReferralCode) {
+      setReferralCode(initialReferralCode);
+    } else {
+      const stored = localStorage.getItem('swift_ref_code');
+      if (stored) {
+        setReferralCode(stored);
+      }
+    }
+  }, [initialReferralCode]);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [error, setError] = useState('');
   const [successNotice, setSuccessNotice] = useState<string | null>(null);

@@ -32,9 +32,15 @@ const MainAppContent: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
     if (ref) {
+      localStorage.setItem('swift_ref_code', ref);
       setInitialRefCode(ref);
       if (!user) {
         setCurrentTab('signup');
+      }
+    } else {
+      const storedRef = localStorage.getItem('swift_ref_code');
+      if (storedRef) {
+        setInitialRefCode(storedRef);
       }
     }
   }, [user]);
