@@ -485,6 +485,12 @@ DECLARE
   v_new_balance NUMERIC(12, 2);
   v_session RECORD;
   v_ref TEXT;
+  
+  -- Variables for referral processing
+  v_referral RECORD;
+  v_referrer_balance NUMERIC(12, 2);
+  v_referrer_new_balance NUMERIC(12, 2);
+  v_ref_ref TEXT;
 BEGIN
   v_user_id := auth.uid();
   IF v_user_id IS NULL THEN
@@ -586,6 +592,77 @@ BEGIN
     v_user_id::TEXT,
     jsonb_build_object('amount', p_amount, 'new_balance', v_new_balance, 'reference', v_ref)
   );
+
+  -- 5. Process pending referral if this is the first completed reward
+  SELECT * INTO v_referral FROM public.referrals
+  WHERE referred_user_id = v_user_id AND status = 'pending'
+  LIMIT 1
+  FOR UPDATE SKIP LOCKED;
+
+  IF v_referral.id IS NOT NULL THEN
+    -- Update referral status
+    UPDATE public.referrals
+    SET status = 'rewarded', updated_at = now()
+    WHERE id = v_referral.id;
+
+    -- Lock referrer wallet and update balance
+    SELECT available_balance INTO v_referrer_balance
+    FROM public.wallets
+    WHERE user_id = v_referral.referrer_id
+    FOR UPDATE;
+
+    IF v_referrer_balance IS NOT NULL THEN
+      v_referrer_new_balance := v_referrer_balance + v_referral.reward_amount;
+      
+      UPDATE public.wallets
+      SET available_balance = v_referrer_new_balance,
+          total_earned = total_earned + v_referral.reward_amount,
+          updated_at = now()
+      WHERE user_id = v_referral.referrer_id;
+
+      v_ref_ref := 'SE-REF-' || UPPER(SUBSTRING(MD5(RANDOM()::TEXT || clock_timestamp()::TEXT) FROM 1 FOR 10));
+      
+      -- Create ledger entry for referrer
+      INSERT INTO public.ledger_entries (
+        user_id,
+        type,
+        entry_type,
+        amount,
+        running_balance,
+        status,
+        reference_type,
+        reference_id,
+        reference,
+        description,
+        metadata
+      ) VALUES (
+        v_referral.referrer_id,
+        'referral',
+        'referral_bonus',
+        v_referral.reward_amount,
+        v_referrer_new_balance,
+        'confirmed',
+        'referral',
+        v_referral.id::TEXT,
+        v_ref_ref,
+        'Referral Bonus',
+        jsonb_build_object('referred_user_id', v_user_id)
+      );
+
+      -- Notify referrer
+      INSERT INTO public.notifications (
+        user_id,
+        title,
+        message,
+        type
+      ) VALUES (
+        v_referral.referrer_id,
+        'Referral Bonus Credited!',
+        'You earned ₦' || TO_CHAR(v_referral.reward_amount, 'FM999,999,990.00') || ' from a referral completing their first reward.',
+        'referral'
+      );
+    END IF;
+  END IF;
 
   RETURN jsonb_build_object(
     'success', true,
