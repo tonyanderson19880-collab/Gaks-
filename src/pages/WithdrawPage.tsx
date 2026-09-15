@@ -48,6 +48,9 @@ export const WithdrawPage: React.FC<WithdrawPageProps> = ({ onNavigate }) => {
   const [successData, setSuccessData] = useState<any>(null);
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<WithdrawalRequest | null>(null);
   const [copiedRef, setCopiedRef] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
+  const [preparedAccountDetails, setPreparedAccountDetails] = useState<Record<string, string>>({});
+  const [numericAmountToSubmit, setNumericAmountToSubmit] = useState<number>(0);
 
   // Auto-populate from user profile if configured
   useEffect(() => {
@@ -197,12 +200,19 @@ export const WithdrawPage: React.FC<WithdrawPageProps> = ({ onNavigate }) => {
       };
     }
 
+    setNumericAmountToSubmit(numericAmount);
+    setPreparedAccountDetails(accountDetails);
+    setShowConfirmModal(true);
+  };
+
+  const confirmAndSubmitWithdrawal = async () => {
     try {
       setLoading(true);
+      setShowConfirmModal(false);
       const res = await api.requestWithdrawal({
-        amount: numericAmount,
+        amount: numericAmountToSubmit,
         paymentMethod: payoutMethod,
-        accountDetails,
+        accountDetails: preparedAccountDetails,
       });
 
       if (res.withdrawal) {
@@ -802,6 +812,74 @@ export const WithdrawPage: React.FC<WithdrawPageProps> = ({ onNavigate }) => {
               >
                 Close Details
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Confirmation Modal */}
+        {showConfirmModal && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full space-y-5 shadow-2xl animate-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+                <h3 className="text-lg font-black text-zinc-900">Confirm Withdrawal Request</h3>
+                <button
+                  onClick={() => setShowConfirmModal(false)}
+                  className="text-zinc-400 hover:text-zinc-700 text-xl font-bold p-1"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="bg-purple-50/60 border border-purple-200 rounded-2xl p-4 space-y-3 text-xs">
+                <div className="flex justify-between py-1 border-b border-purple-200/50">
+                  <span className="text-zinc-500 font-medium">Amount:</span>
+                  <span className="font-black text-zinc-900 text-sm">₦{numericAmountToSubmit.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-purple-200/50">
+                  <span className="text-zinc-500 font-medium">Payment method:</span>
+                  <span className="font-bold text-[#6C2BD9] capitalize">
+                    {payoutMethod === 'bank_transfer' ? 'Bank Transfer' : 'Fintech Wallet'}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-purple-200/50">
+                  <span className="text-zinc-500 font-medium">Provider:</span>
+                  <span className="font-medium text-zinc-800">
+                    {payoutMethod === 'bank_transfer' ? preparedAccountDetails.bankName : preparedAccountDetails.walletProvider}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-purple-200/50">
+                  <span className="text-zinc-500 font-medium">Account Name:</span>
+                  <span className="font-medium text-zinc-800">{preparedAccountDetails.accountName}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-zinc-500 font-medium">Account:</span>
+                  <span className="font-mono font-bold text-zinc-900">
+                    ******{(preparedAccountDetails.accountNumber || preparedAccountDetails.walletAccountId || '').slice(-4)}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-zinc-500 text-center leading-relaxed">
+                You will receive your withdrawal after it has been reviewed and processed.
+              </p>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmModal(false)}
+                  className="flex-1 py-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold text-xs transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmAndSubmitWithdrawal}
+                  disabled={loading}
+                  className="flex-1 py-3 rounded-xl bg-[#6C2BD9] hover:bg-[#5821B0] text-white font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {loading ? 'Processing...' : 'Confirm Withdrawal'}
+                </button>
+              </div>
             </div>
           </div>
         )}
