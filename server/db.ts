@@ -519,11 +519,22 @@ class DatabaseManager {
   }): { user: User; profile: Profile; wallet: Wallet } {
     const userId = `usr_${crypto.randomBytes(8).toString('hex')}`;
     let referredBy: string | null = null;
+    let refCodeUsed = '';
 
     if (params.referralCodeInput) {
-      const referrer = this.findUserByReferralCode(params.referralCodeInput);
+      const cleanRefCode = params.referralCodeInput.trim().toUpperCase();
+      const referrer = this.findUserByReferralCode(cleanRefCode);
       if (referrer) {
-        referredBy = referrer.id;
+        if (referrer.id === userId) {
+          this.logFraudEvent(userId, 90, 'self_referral_attempt', { referral_code: cleanRefCode });
+        } else if (this.db.referrals.some((r) => r.referred_user_id === userId)) {
+          this.logFraudEvent(userId, 80, 'duplicate_referral', { referral_code: cleanRefCode });
+        } else {
+          referredBy = referrer.id;
+          refCodeUsed = cleanRefCode;
+        }
+      } else {
+        this.logFraudEvent(undefined, 50, 'invalid_referral_code', { referral_code: cleanRefCode });
       }
     }
 
@@ -581,7 +592,9 @@ class DatabaseManager {
         id: `ref_${crypto.randomBytes(8).toString('hex')}`,
         referrer_user_id: referredBy,
         referred_user_id: userId,
-        status: 'registered',
+        referral_code: refCodeUsed,
+        status: 'pending',
+        qualification_status: 'pending',
         reward_amount: this.db.config.referral_bonus_amount,
         created_at: new Date().toISOString(),
       };
@@ -719,13 +732,14 @@ class DatabaseManager {
     const user = this.findUserById(userId);
     if (user?.referred_by_user_id) {
       const referral = this.db.referrals.find(
-        (r) => r.referred_user_id === userId && r.status === 'registered'
+        (r) => r.referred_user_id === userId && (r.status === 'pending' || r.status === 'registered')
       );
       if (referral) {
-        referral.status = 'successful';
-        referral.rewarded_at = new Date().toISOString();
-        // Credit referrer
-        this.creditReferralBonus(referral.referrer_user_id, referral.reward_amount, user.email);
+        referral.status = 'qualified';
+        referral.qualification_status = 'completed';
+        referral.qualified_at = new Date().toISOString();
+        // Credit referrer securely
+        this.creditReferralBonus(referral, user.email);
       }
     }
 
@@ -740,22 +754,27 @@ class DatabaseManager {
     return { success: true, entry, wallet };
   }
 
-  creditReferralBonus(referrerId: string, amount: number, referredEmail: string) {
-    const wallet = this.getWallet(referrerId);
+  creditReferralBonus(referral: Referral, referredEmail: string) {
+    if (referral.status === 'rewarded') return;
+    const wallet = this.getWallet(referral.referrer_user_id);
+    const amount = referral.reward_amount;
     const newAvailable = Math.round((wallet.available_balance + amount) * 100) / 100;
     const newTotal = Math.round((wallet.total_earned + amount) * 100) / 100;
 
     const ref = `TX-REF-${crypto.randomBytes(6).toString('hex').toUpperCase()}`;
+    const emailParts = referredEmail ? referredEmail.split('@') : ['user', 'swiftearn.demo'];
+    const maskedEmail = `${emailParts[0].slice(0, 2)}***@${emailParts[1] || 'gmail.com'}`;
+
     const entry: LedgerEntry = {
       id: `ledg_${crypto.randomBytes(8).toString('hex')}`,
-      user_id: referrerId,
+      user_id: referral.referrer_user_id,
       entry_type: 'referral_bonus',
       amount,
       running_balance: newAvailable,
       status: 'confirmed',
       reference: ref,
-      description: `Referral bonus reward for inviting friend (${referredEmail.split('@')[0]}***)`,
-      idempotency_key: `idemp_ref_bonus_${referrerId}_${Date.now()}`,
+      description: `Referral bonus reward for inviting friend (${maskedEmail})`,
+      idempotency_key: `idemp_ref_bonus_${referral.referrer_user_id}_${referral.id}`,
       created_at: new Date().toISOString(),
     };
 
@@ -764,8 +783,13 @@ class DatabaseManager {
     wallet.updated_at = new Date().toISOString();
     this.db.ledger_entries.push(entry);
 
+    referral.status = 'rewarded';
+    referral.qualification_status = 'completed';
+    referral.rewarded_at = new Date().toISOString();
+    referral.reward_ledger_entry_id = entry.id;
+
     this.addNotification({
-      user_id: referrerId,
+      user_id: referral.referrer_user_id,
       title: 'Referral Bonus Credited!',
       message: `+₦${amount.toFixed(2)} referral reward has been credited to your available balance!`,
       type: 'referral',
@@ -1215,23 +1239,93 @@ class DatabaseManager {
   }
 
   // Referrals
-  getReferrals(userId: string): { referrals: Referral[]; totalCount: number; totalBonusEarned: number } {
+  getReferrals(userId: string): { referrals: any[]; totalCount: number; totalBonusEarned: number } {
     const list = this.db.referrals.filter((r) => r.referrer_user_id === userId);
     const totalBonus = list
       .filter((r) => r.status === 'rewarded' || r.status === 'successful')
       .reduce((sum, r) => sum + r.reward_amount, 0);
 
+    const enriched = list.map((r) => {
+      const referredUser = this.findUserById(r.referred_user_id);
+      const profile = referredUser ? this.findProfileByUserId(referredUser.id) : null;
+      const email = referredUser?.email || '';
+      const maskedEmail = email ? `${email.split('@')[0].slice(0, 2)}***@${email.split('@')[1] || 'gmail.com'}` : 'user***';
+      return {
+        ...r,
+        referred_name: profile?.full_name || 'Member',
+        referred_email: maskedEmail,
+      };
+    });
+
     return {
-      referrals: list,
+      referrals: enriched,
       totalCount: list.length,
       totalBonusEarned: totalBonus,
     };
   }
 
-  getAllReferrals(): Referral[] {
-    return [...this.db.referrals].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
+  getAllReferrals(): any[] {
+    return [...this.db.referrals]
+      .map((r) => {
+        const referredUser = this.findUserById(r.referred_user_id);
+        const referrerUser = this.findUserById(r.referrer_user_id);
+        const profile = referredUser ? this.findProfileByUserId(referredUser.id) : null;
+        const email = referredUser?.email || '';
+        const maskedEmail = email ? `${email.split('@')[0].slice(0, 2)}***@${email.split('@')[1] || 'gmail.com'}` : 'user***';
+        return {
+          ...r,
+          referred_name: profile?.full_name || 'Member',
+          referred_email: maskedEmail,
+          referrer_email: referrerUser?.email || '',
+        };
+      })
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  logFraudEvent(userId: string | undefined, riskScore: number, reason: string, details: any) {
+    const event: FraudEvent = {
+      id: `fraud_${crypto.randomBytes(6).toString('hex')}`,
+      user_id: userId,
+      risk_score: riskScore,
+      flag_reason: reason,
+      details,
+      resolved: false,
+      created_at: new Date().toISOString(),
+    };
+    this.db.fraud_events.push(event);
+    this.persist();
+  }
+
+  getFraudEvents(): FraudEvent[] {
+    return [...this.db.fraud_events].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  adminUpdateReferralStatus(referralId: string, status: string, qualificationStatus: string, adminId: string): Referral {
+    const r = this.db.referrals.find((item) => item.id === referralId);
+    if (!r) throw new Error('Referral not found');
+
+    const oldStatus = r.status;
+    r.status = status as any;
+    if (qualificationStatus) {
+      r.qualification_status = qualificationStatus as any;
+    }
+    if (status === 'rewarded' && !r.rewarded_at) {
+      const referredUser = this.findUserById(r.referred_user_id);
+      this.creditReferralBonus(r, referredUser?.email || 'user@swiftearn.demo');
+    }
+
+    this.addAuditLog({
+      id: `audit_${crypto.randomBytes(8).toString('hex')}`,
+      admin_id: adminId,
+      action: 'UPDATE_REFERRAL_STATUS',
+      target_resource: 'referrals',
+      target_id: referralId,
+      details: { old_status: oldStatus, new_status: status, qualification_status: r.qualification_status },
+      created_at: new Date().toISOString(),
+    });
+
+    this.persist();
+    return r;
   }
 
   // Notifications

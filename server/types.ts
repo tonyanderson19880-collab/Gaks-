@@ -125,10 +125,16 @@ export interface Referral {
   id: string;
   referrer_user_id: string;
   referred_user_id: string;
-  status: 'registered' | 'successful' | 'rewarded' | 'suspicious';
+  referral_code: string;
+  status: 'pending' | 'qualified' | 'rewarded' | 'rejected' | 'suspicious' | 'registered' | 'successful';
+  qualification_status: 'pending' | 'completed' | 'failed';
   reward_amount: number;
+  reward_ledger_entry_id?: string;
   created_at: string;
+  qualified_at?: string;
   rewarded_at?: string;
+  referred_email?: string;
+  referred_name?: string;
 }
 
 export interface FraudEvent {

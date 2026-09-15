@@ -47,7 +47,7 @@ export const ReferralsPage: React.FC<ReferralsPageProps> = ({ onNavigate }) => {
   }, [user]);
 
   const referralCode = profile?.referral_code || 'SE-DEMO1';
-  const referralLink = `${window.location.origin}/?ref=${referralCode}`;
+  const referralLink = `${window.location.origin}/signup?ref=${referralCode}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(referralLink);

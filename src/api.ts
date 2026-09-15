@@ -631,6 +631,16 @@ export const api = {
       true
     ),
   getAdminReferrals: () => request<{ referrals: any[] }>('/api/admin/referrals', {}, true),
+  reviewAdminReferral: (id: string, status: string, qualification_status: string) =>
+    request<{ success: boolean; referral: any }>(
+      `/api/admin/referrals/${id}/review`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ status, qualification_status }),
+      },
+      true
+    ),
+  getAdminFraudEvents: () => request<{ fraudEvents: any[] }>('/api/admin/fraud-events', {}, true),
   getAdminSettings: () => request<{ config: SystemConfig }>('/api/admin/settings', {}, true),
   updateAdminSettings: (body: Partial<SystemConfig>) =>
     request<{ config: SystemConfig }>(

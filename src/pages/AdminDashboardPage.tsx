@@ -33,13 +33,14 @@ export const AdminDashboardPage: React.FC = () => {
   const [adminPassword, setAdminPassword] = useState('AdminSecure2026!');
   const [loginError, setLoginError] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'rewards' | 'withdrawals' | 'users' | 'security' | 'settings'>('withdrawals');
+  const [activeTab, setActiveTab] = useState<'rewards' | 'withdrawals' | 'users' | 'referrals' | 'security' | 'settings'>('withdrawals');
   const [metrics, setMetrics] = useState<any>(null);
   const [opportunities, setOpportunities] = useState<RewardOpportunity[]>([]);
   const [rewardSessions, setRewardSessions] = useState<RewardSession[]>([]);
   const [fraudEvents, setFraudEvents] = useState<FraudEvent[]>([]);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
+  const [referralsList, setReferralsList] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
   // Withdrawal filters & actions
@@ -78,13 +79,14 @@ export const AdminDashboardPage: React.FC = () => {
     if (!admin) return;
     try {
       setLoading(true);
-      const [overviewRes, withRes, usersRes, logsRes, rewardsRes, settingsRes] = await Promise.all([
+      const [overviewRes, withRes, usersRes, logsRes, rewardsRes, settingsRes, refsRes] = await Promise.all([
         api.getAdminOverview(),
         api.getAdminWithdrawals(),
         api.getAdminUsers(),
         api.getAdminAuditLogs(),
         api.getAdminRewards(),
         api.getAdminSettings().catch(() => ({ config: {} as any })),
+        api.getAdminReferrals().catch(() => ({ referrals: [] })),
       ]);
       setMetrics(overviewRes.metrics);
       if (settingsRes?.config) {
@@ -101,6 +103,7 @@ export const AdminDashboardPage: React.FC = () => {
       }
       setWithdrawals(withRes.withdrawals || []);
       setUsersList(usersRes.users || []);
+      setReferralsList(refsRes.referrals || []);
       setAuditLogs(logsRes.auditLogs || []);
       setRewardSessions(rewardsRes.sessions || []);
       setFraudEvents(rewardsRes.fraudEvents || []);
@@ -225,6 +228,17 @@ export const AdminDashboardPage: React.FC = () => {
       await fetchAdminData();
     } catch (err: any) {
       showError(err.message || 'Failed to save settings');
+    }
+  };
+
+  const handleReviewReferral = async (id: string, status: string, qualificationStatus: string) => {
+    try {
+      await api.reviewAdminReferral(id, status, qualificationStatus);
+      showToast('Referral status updated successfully.');
+      const refsRes = await api.getAdminReferrals();
+      setReferralsList(refsRes.referrals || []);
+    } catch (err: any) {
+      showError(err.message || 'Failed to update referral status');
     }
   };
 
@@ -466,6 +480,18 @@ export const AdminDashboardPage: React.FC = () => {
           >
             <AlertTriangle className="w-3.5 h-3.5" />
             <span>Fraud & Security ({fraudEvents.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('referrals')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 cursor-pointer ${
+              activeTab === 'referrals'
+                ? 'bg-[#6C2BD9] text-white'
+                : 'bg-zinc-900 text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5 text-[#B8F500]" />
+            <span>Referrals Management ({referralsList.length})</span>
           </button>
 
           <button
@@ -936,6 +962,101 @@ export const AdminDashboardPage: React.FC = () => {
                 ))
               )}
             </div>
+          </div>
+        )}
+
+        {/* Tab: Referrals Management */}
+        {activeTab === 'referrals' && (
+          <div className="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-extrabold text-white">Referrals & Affiliate Program Audits</h3>
+                <p className="text-xs text-zinc-400">Monitor unique referral links, qualification milestones, and bonus ledger disbursements</p>
+              </div>
+              <span className="bg-purple-900 text-purple-200 text-xs font-bold px-3 py-1 rounded-xl">
+                Total Referrals: {referralsList.length}
+              </span>
+            </div>
+
+            {referralsList.length === 0 ? (
+              <div className="py-12 text-center text-xs text-zinc-500">No referral relationships recorded yet.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-zinc-300">
+                  <thead className="bg-zinc-950 text-zinc-400 font-bold uppercase tracking-wider text-[10px]">
+                    <tr>
+                      <th className="p-3">Referral ID / Code</th>
+                      <th className="p-3">Referrer User</th>
+                      <th className="p-3">Referred Member</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3">Qualification</th>
+                      <th className="p-3">Reward</th>
+                      <th className="p-3">Joined Date</th>
+                      <th className="p-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800">
+                    {referralsList.map((ref) => (
+                      <tr key={ref.id} className="hover:bg-zinc-800/50">
+                        <td className="p-3 font-mono text-zinc-400">
+                          <div className="font-bold text-white">{ref.id}</div>
+                          <span className="text-[10px] text-[#B8F500]">Code: {ref.referral_code || 'N/A'}</span>
+                        </td>
+                        <td className="p-3 font-mono text-xs text-zinc-300">
+                          {ref.referrer_user_id}
+                        </td>
+                        <td className="p-3">
+                          <div className="font-bold text-white">{ref.referred_name || 'Member'}</div>
+                          <div className="text-[10px] text-zinc-400 font-mono">{ref.referred_email}</div>
+                        </td>
+                        <td className="p-3">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                              ref.status === 'rewarded'
+                                ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                : ref.status === 'qualified'
+                                ? 'bg-purple-950 text-purple-300 border border-purple-800'
+                                : ref.status === 'suspicious' || ref.status === 'rejected'
+                                ? 'bg-red-950 text-red-300 border border-red-800'
+                                : 'bg-zinc-800 text-zinc-300'
+                            }`}
+                          >
+                            {ref.status}
+                          </span>
+                        </td>
+                        <td className="p-3 font-mono text-xs text-zinc-300">
+                          {ref.qualification_status || 'pending'}
+                        </td>
+                        <td className="p-3 font-bold text-emerald-400">
+                          ₦{(ref.reward_amount || 50).toFixed(2)}
+                        </td>
+                        <td className="p-3 font-mono text-[11px] text-zinc-400">
+                          {new Date(ref.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="p-3 text-right space-x-2">
+                          {ref.status !== 'rewarded' && (
+                            <button
+                              onClick={() => handleReviewReferral(ref.id, 'rewarded', 'completed')}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-[10px] cursor-pointer"
+                            >
+                              Qualify & Credit
+                            </button>
+                          )}
+                          {ref.status !== 'suspicious' && (
+                            <button
+                              onClick={() => handleReviewReferral(ref.id, 'suspicious', ref.qualification_status)}
+                              className="px-2.5 py-1 rounded-lg bg-red-900 hover:bg-red-800 text-red-100 font-bold text-[10px] cursor-pointer"
+                            >
+                              Flag
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 

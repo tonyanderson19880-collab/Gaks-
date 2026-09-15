@@ -824,6 +824,23 @@ async function startServer() {
     res.json({ referrals });
   });
 
+  app.post('/api/admin/referrals/:id/review', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    const referralId = req.params.id;
+    const { status, qualification_status } = req.body;
+    const admin = req.admin!;
+    try {
+      const updated = dbManager.adminUpdateReferralStatus(referralId, status, qualification_status, admin.id);
+      res.json({ success: true, referral: updated });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to update referral status' });
+    }
+  });
+
+  app.get('/api/admin/fraud-events', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    const fraudEvents = dbManager.getFraudEvents();
+    res.json({ fraudEvents });
+  });
+
   app.get('/api/admin/settings', requireAdminAuth, (req: AuthenticatedRequest, res) => {
     const config = dbManager.getConfig();
     res.json({ config });
