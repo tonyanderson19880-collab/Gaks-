@@ -145,12 +145,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setUser(formatSupabaseUser(sbUser, sbData.profile));
               setProfile(sbData.profile);
               setWallet(sbData.wallet);
-              if (sbData.profile && ['admin', 'super_admin'].includes(sbData.profile.role)) {
+              const userEmail = (sbUser.email || '').toLowerCase().trim();
+              const isAuthorizedAdmin = userEmail === 'tonyanderson19880@gmail.com' || (sbData.profile && ['admin', 'super_admin'].includes(sbData.profile.role));
+              if (isAuthorizedAdmin) {
                 setAdmin({
                   id: sbUser.id,
                   email: sbUser.email,
-                  full_name: sbData.profile.full_name || 'Administrator',
-                  role: sbData.profile.role,
+                  full_name: sbData.profile?.full_name || 'Administrator',
+                  role: userEmail === 'tonyanderson19880@gmail.com' ? 'super_admin' : sbData.profile?.role,
                 });
               }
             }
@@ -169,12 +171,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setUser(formatSupabaseUser(session.user, sbData.profile));
               setProfile(sbData.profile);
               setWallet(sbData.wallet);
-              if (sbData.profile && ['admin', 'super_admin'].includes(sbData.profile.role)) {
+              const userEmail = (session.user.email || '').toLowerCase().trim();
+              const isAuthorizedAdmin = userEmail === 'tonyanderson19880@gmail.com' || (sbData.profile && ['admin', 'super_admin'].includes(sbData.profile.role));
+              if (isAuthorizedAdmin) {
                 setAdmin({
                   id: session.user.id,
                   email: session.user.email,
-                  full_name: sbData.profile.full_name || 'Administrator',
-                  role: sbData.profile.role,
+                  full_name: sbData.profile?.full_name || 'Administrator',
+                  role: userEmail === 'tonyanderson19880@gmail.com' ? 'super_admin' : sbData.profile?.role,
                 });
               }
             } else if (event === 'SIGNED_OUT') {

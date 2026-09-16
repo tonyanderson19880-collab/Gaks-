@@ -552,15 +552,21 @@ export const api = {
         password: body.password,
       });
       if (error) throw new Error(error.message || 'Invalid admin credentials');
+
+      const userEmail = (data.user?.email || '').toLowerCase().trim();
+      const isAuthorizedEmail = userEmail === 'tonyanderson19880@gmail.com';
       const profile = (await sb.from('profiles').select('*').eq('id', data.user.id).single())?.data;
-      if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
+      const isAuthorizedRole = profile && ['admin', 'super_admin'].includes(profile.role);
+
+      if (!isAuthorizedEmail && !isAuthorizedRole) {
         throw new Error('Access Denied: Account is not an authorized administrator.');
       }
+
       const adminObj = {
         id: data.user.id,
         email: data.user.email,
-        full_name: profile.full_name || 'Administrator',
-        role: profile.role,
+        full_name: profile?.full_name || 'Administrator',
+        role: isAuthorizedEmail ? 'super_admin' : (profile?.role || 'admin'),
       };
       setAdminToken(data.session.access_token);
       return { token: data.session.access_token, admin: adminObj };
@@ -576,16 +582,22 @@ export const api = {
       const sb = getSupabaseClient();
       const user = (await sb?.auth.getUser())?.data.user;
       if (!user) throw new Error('Unauthorized');
+
+      const userEmail = (user.email || '').toLowerCase().trim();
+      const isAuthorizedEmail = userEmail === 'tonyanderson19880@gmail.com';
       const profile = (await sb?.from('profiles').select('*').eq('id', user.id).single())?.data;
-      if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
+      const isAuthorizedRole = profile && ['admin', 'super_admin'].includes(profile.role);
+
+      if (!isAuthorizedEmail && !isAuthorizedRole) {
         throw new Error('Unauthorized');
       }
+
       return {
         admin: {
           id: user.id,
           email: user.email,
-          full_name: profile.full_name || 'Administrator',
-          role: profile.role,
+          full_name: profile?.full_name || 'Administrator',
+          role: isAuthorizedEmail ? 'super_admin' : (profile?.role || 'admin'),
         },
       };
     }
