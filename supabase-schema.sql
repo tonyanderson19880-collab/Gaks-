@@ -674,7 +674,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- 11.2 RECORD / REQUEST WITHDRAWAL (Validates balance, locks wallet, creates pending withdrawal & debit ledger)
+-- 11.2 RECORD / REQUEST WITHDRAWAL (Validates balance, locks wallet, checks account status, creates pending withdrawal & debit ledger)
 CREATE OR REPLACE FUNCTION public.request_withdrawal(
   p_amount NUMERIC,
   p_payment_method TEXT,
@@ -683,22 +683,62 @@ CREATE OR REPLACE FUNCTION public.request_withdrawal(
 RETURNS JSONB AS $$
 DECLARE
   v_user_id UUID;
+  v_profile RECORD;
   v_current_balance NUMERIC(12, 2);
   v_new_balance NUMERIC(12, 2);
   v_ref TEXT;
   v_withdrawal_id UUID;
   v_min_withdrawal NUMERIC(12, 2) := 500.00;
+  v_max_withdrawal NUMERIC(12, 2) := 50000.00;
+  v_acc_num TEXT;
 BEGIN
   v_user_id := auth.uid();
   IF v_user_id IS NULL THEN
     RAISE EXCEPTION 'Unauthorized: User session required';
   END IF;
 
+  -- 1. Check account profile status
+  SELECT * INTO v_profile FROM public.profiles WHERE id = v_user_id OR user_id = v_user_id;
+  IF v_profile.account_status = 'suspended' THEN
+    RAISE EXCEPTION 'Account is suspended. Withdrawals are disabled.';
+  END IF;
+
+  -- 2. Validate amount limits
   IF p_amount < v_min_withdrawal THEN
     RAISE EXCEPTION 'Minimum withdrawal is ₦500.00';
   END IF;
 
-  -- Lock wallet row to prevent double withdrawals / race conditions
+  IF p_amount > v_max_withdrawal THEN
+    RAISE EXCEPTION 'Maximum single withdrawal limit is ₦50,000.00';
+  END IF;
+
+  -- 3. Check pending withdrawal restriction (Max 1 active withdrawal in queue)
+  IF EXISTS (
+    SELECT 1 FROM public.withdrawals
+    WHERE user_id = v_user_id AND status IN ('pending', 'processing', 'approved')
+  ) THEN
+    RAISE EXCEPTION 'You already have an active withdrawal request in queue. Please wait for completion before submitting another.';
+  END IF;
+
+  -- 4. Anti-Fraud Flag Check: Shared Bank Account Detection
+  v_acc_num := COALESCE(p_account_details->>'accountNumber', p_account_details->>'account_number', p_account_details->>'walletAccountId', p_account_details->>'wallet_account_id');
+  IF v_acc_num IS NOT NULL AND LENGTH(v_acc_num) >= 6 THEN
+    IF EXISTS (
+      SELECT 1 FROM public.withdrawals
+      WHERE user_id <> v_user_id
+        AND (account_details->>'accountNumber' = v_acc_num OR account_details->>'account_number' = v_acc_num OR account_details->>'walletAccountId' = v_acc_num)
+    ) THEN
+      INSERT INTO public.fraud_events (user_id, event_type, description, metadata)
+      VALUES (
+        v_user_id,
+        'SUSPICIOUS_SHARED_ACCOUNT',
+        'User requested payout to a bank/wallet account number used by another account',
+        jsonb_build_object('account_number', v_acc_num, 'amount', p_amount)
+      );
+    END IF;
+  END IF;
+
+  -- 5. Lock wallet row to prevent race conditions
   SELECT available_balance INTO v_current_balance
   FROM public.wallets
   WHERE user_id = v_user_id
@@ -711,15 +751,14 @@ BEGIN
   v_new_balance := v_current_balance - p_amount;
   v_ref := 'SE-WTH-' || UPPER(SUBSTRING(MD5(RANDOM()::TEXT || clock_timestamp()::TEXT) FROM 1 FOR 10));
 
-  -- 1. Deduct balance immediately
+  -- 6. Deduct balance immediately & reserve funds
   UPDATE public.wallets
   SET
     available_balance = v_new_balance,
-    total_withdrawn = total_withdrawn + p_amount,
     updated_at = now()
   WHERE user_id = v_user_id;
 
-  -- 2. Create pending withdrawal record
+  -- 7. Create pending withdrawal record
   INSERT INTO public.withdrawals (
     user_id,
     amount,
@@ -727,7 +766,8 @@ BEGIN
     payment_method,
     account_details,
     status,
-    reference
+    reference,
+    is_demo
   ) VALUES (
     v_user_id,
     p_amount,
@@ -735,10 +775,11 @@ BEGIN
     COALESCE(p_payment_method, 'bank_transfer'),
     p_account_details,
     'pending',
-    v_ref
+    v_ref,
+    true
   ) RETURNING id INTO v_withdrawal_id;
 
-  -- 3. Create debit ledger entry
+  -- 8. Create debit ledger entry
   INSERT INTO public.ledger_entries (
     user_id,
     type,
@@ -757,15 +798,15 @@ BEGIN
     'withdrawal_debit',
     -p_amount,
     v_new_balance,
-    'confirmed',
+    'pending',
     'withdrawal',
     v_withdrawal_id::TEXT,
     v_ref,
-    'Payout Request (' || COALESCE(p_payment_method, 'Bank Transfer') || ')',
+    'Payout Request (' || COALESCE(p_payment_method, 'Bank Transfer') || ') [TEST MODE]',
     jsonb_build_object('withdrawal_id', v_withdrawal_id, 'payment_method', p_payment_method)
   );
 
-  -- 4. In-app notification
+  -- 9. In-app notification
   INSERT INTO public.notifications (
     user_id,
     title,
@@ -773,12 +814,12 @@ BEGIN
     type
   ) VALUES (
     v_user_id,
-    'Payout Request Submitted',
+    'Payout Request Submitted [DEMO]',
     'Your withdrawal request of ₦' || TO_CHAR(p_amount, 'FM999,999,990.00') || ' has been queued for verification (Ref: ' || v_ref || ').',
     'withdrawal'
   );
 
-  -- 5. Audit log
+  -- 10. Audit log
   INSERT INTO public.audit_logs (
     user_id,
     action,
@@ -812,6 +853,199 @@ CREATE OR REPLACE FUNCTION public.record_withdrawal(
 RETURNS JSONB AS $$
 BEGIN
   RETURN public.request_withdrawal(p_amount, p_payment_method, p_account_details);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- 11.3 ADMIN REVIEW WITHDRAWAL (State machine transitions, refunds, & audit log)
+CREATE OR REPLACE FUNCTION public.admin_review_withdrawal(
+  p_withdrawal_id UUID,
+  p_status TEXT,
+  p_rejection_reason TEXT DEFAULT NULL,
+  p_admin_notes TEXT DEFAULT NULL,
+  p_provider_reference TEXT DEFAULT NULL
+)
+RETURNS JSONB AS $$
+DECLARE
+  v_caller_id UUID;
+  v_caller_email TEXT;
+  v_caller_role TEXT;
+  v_withdrawal RECORD;
+  v_wallet RECORD;
+  v_old_status TEXT;
+  v_new_balance NUMERIC(12, 2);
+  v_rev_ref TEXT;
+BEGIN
+  v_caller_id := auth.uid();
+  IF v_caller_id IS NULL THEN
+    RAISE EXCEPTION 'Unauthorized: Session token required';
+  END IF;
+
+  -- Verify caller privileges
+  SELECT email INTO v_caller_email FROM auth.users WHERE id = v_caller_id;
+  SELECT role INTO v_caller_role FROM public.profiles WHERE id = v_caller_id OR user_id = v_caller_id;
+
+  IF COALESCE(v_caller_email, '') <> 'tonyanderson19880@gmail.com' AND COALESCE(v_caller_role, '') <> 'admin' THEN
+    INSERT INTO public.fraud_events (user_id, event_type, description, metadata)
+    VALUES (
+      v_caller_id,
+      'UNAUTHORIZED_ADMIN_ACTION',
+      'Unauthorized user attempted to call admin_review_withdrawal RPC',
+      jsonb_build_object('withdrawal_id', p_withdrawal_id, 'target_status', p_status, 'caller_email', v_caller_email)
+    );
+    RAISE EXCEPTION 'Forbidden: Administrator privileges required.';
+  END IF;
+
+  -- Lock withdrawal record
+  SELECT * INTO v_withdrawal FROM public.withdrawals WHERE id = p_withdrawal_id FOR UPDATE;
+  IF v_withdrawal.id IS NULL THEN
+    RAISE EXCEPTION 'Withdrawal request not found';
+  END IF;
+
+  v_old_status := v_withdrawal.status;
+
+  -- Prevent changes from terminal states
+  IF v_old_status IN ('completed', 'paid', 'rejected', 'failed', 'cancelled') THEN
+    RAISE EXCEPTION 'Withdrawal has already reached terminal status (%) and cannot be modified.', UPPER(v_old_status);
+  END IF;
+
+  -- Validate target status
+  IF p_status NOT IN ('approved', 'processing', 'completed', 'paid', 'rejected', 'failed') THEN
+    RAISE EXCEPTION 'Invalid target withdrawal status: %', p_status;
+  END IF;
+
+  -- Perform status update & wallet adjustments
+  IF p_status IN ('rejected', 'failed') THEN
+    -- Lock user wallet
+    SELECT * INTO v_wallet FROM public.wallets WHERE user_id = v_withdrawal.user_id FOR UPDATE;
+
+    v_new_balance := v_wallet.available_balance + v_withdrawal.amount;
+
+    -- Refund balance
+    UPDATE public.wallets
+    SET
+      available_balance = v_new_balance,
+      updated_at = now()
+    WHERE user_id = v_withdrawal.user_id;
+
+    -- Update withdrawal record
+    UPDATE public.withdrawals
+    SET
+      status = p_status,
+      rejection_reason = COALESCE(p_rejection_reason, p_admin_notes, 'Request rejected by compliance'),
+      admin_note = COALESCE(p_admin_notes, p_rejection_reason),
+      provider_reference = COALESCE(p_provider_reference, v_withdrawal.provider_reference),
+      updated_at = now()
+    WHERE id = p_withdrawal_id;
+
+    -- Create reversal ledger entry
+    v_rev_ref := 'REV-' || v_withdrawal.reference;
+    INSERT INTO public.ledger_entries (
+      user_id,
+      type,
+      entry_type,
+      amount,
+      running_balance,
+      status,
+      reference_type,
+      reference_id,
+      reference,
+      description,
+      metadata
+    ) VALUES (
+      v_withdrawal.user_id,
+      'reversal',
+      'withdrawal_refund',
+      v_withdrawal.amount,
+      v_new_balance,
+      'confirmed',
+      'withdrawal',
+      v_withdrawal.id::TEXT,
+      v_rev_ref,
+      'Withdrawal refund reversal (' || UPPER(p_status) || '): ' || COALESCE(p_rejection_reason, 'Admin rejection'),
+      jsonb_build_object('withdrawal_id', p_withdrawal_id, 'original_reference', v_withdrawal.reference)
+    );
+
+    -- Update original ledger entry status to cancelled
+    UPDATE public.ledger_entries
+    SET status = 'cancelled'
+    WHERE reference = v_withdrawal.reference;
+
+    -- User Notification
+    INSERT INTO public.notifications (user_id, title, message, type)
+    VALUES (
+      v_withdrawal.user_id,
+      'Withdrawal ' || UPPER(p_status) || ' [Refunded]',
+      'Your withdrawal of ₦' || TO_CHAR(v_withdrawal.amount, 'FM999,999,990.00') || ' was ' || p_status || '. Funds have been refunded to your wallet. Reason: ' || COALESCE(p_rejection_reason, 'Rejected by compliance.'),
+      'withdrawal'
+    );
+
+  ELSIF p_status IN ('completed', 'paid') THEN
+    SELECT * INTO v_wallet FROM public.wallets WHERE user_id = v_withdrawal.user_id FOR UPDATE;
+
+    UPDATE public.wallets
+    SET
+      total_withdrawn = total_withdrawn + v_withdrawal.amount,
+      updated_at = now()
+    WHERE user_id = v_withdrawal.user_id;
+
+    UPDATE public.withdrawals
+    SET
+      status = 'completed',
+      admin_note = COALESCE(p_admin_notes, 'Payout verified and settled'),
+      provider_reference = COALESCE(p_provider_reference, v_withdrawal.provider_reference, 'DEMO-PAY-' || UPPER(SUBSTRING(MD5(RANDOM()::TEXT) FROM 1 FOR 8))),
+      processed_at = now(),
+      updated_at = now()
+    WHERE id = p_withdrawal_id;
+
+    -- Mark ledger entry confirmed
+    UPDATE public.ledger_entries
+    SET status = 'confirmed'
+    WHERE reference = v_withdrawal.reference;
+
+    -- User Notification
+    INSERT INTO public.notifications (user_id, title, message, type)
+    VALUES (
+      v_withdrawal.user_id,
+      'Withdrawal Completed [DEMO]',
+      'Your withdrawal of ₦' || TO_CHAR(v_withdrawal.amount, 'FM999,999,990.00') || ' (Ref: ' || v_withdrawal.reference || ') has been successfully processed in Demo Mode.',
+      'withdrawal'
+    );
+
+  ELSIF p_status = 'processing' OR p_status = 'approved' THEN
+    UPDATE public.withdrawals
+    SET
+      status = p_status,
+      admin_note = p_admin_notes,
+      provider_reference = COALESCE(p_provider_reference, v_withdrawal.provider_reference, 'DEMO-TRF-' || UPPER(SUBSTRING(MD5(RANDOM()::TEXT) FROM 1 FOR 8))),
+      updated_at = now()
+    WHERE id = p_withdrawal_id;
+
+    -- User Notification
+    INSERT INTO public.notifications (user_id, title, message, type)
+    VALUES (
+      v_withdrawal.user_id,
+      'Withdrawal Status: ' || UPPER(p_status),
+      'Your withdrawal request of ₦' || TO_CHAR(v_withdrawal.amount, 'FM999,999,990.00') || ' is now ' || p_status || '.',
+      'withdrawal'
+    );
+  END IF;
+
+  -- Audit log
+  INSERT INTO public.audit_logs (user_id, action, entity_type, entity_id, details)
+  VALUES (
+    v_caller_id,
+    'WITHDRAWAL_REVIEW_' || UPPER(p_status),
+    'withdrawals',
+    p_withdrawal_id::TEXT,
+    jsonb_build_object('old_status', v_old_status, 'new_status', p_status, 'admin_email', v_caller_email, 'notes', p_admin_notes)
+  );
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'message', 'Withdrawal status updated to ' || p_status,
+    'withdrawalId', p_withdrawal_id,
+    'newStatus', p_status
+  );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 

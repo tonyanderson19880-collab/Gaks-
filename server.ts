@@ -10,6 +10,7 @@ import {
   AuthenticatedRequest,
 } from './server/auth.js';
 import { getProvider } from './server/adProviders.js';
+import { getPaymentProvider } from './server/paymentProviders/index.js';
 
 async function startServer() {
   const app = express();
@@ -817,6 +818,63 @@ async function startServer() {
       simulation: payResult,
       withdrawal: result.withdrawal,
     });
+  });
+
+  /**
+   * Secure Webhook Handler for Payout Notifications (Paystack / Flutterwave / Demo Webhook)
+   * Ensures signature validation, idempotency, and atomic state transitions.
+   */
+  app.post('/api/webhooks/payout', async (req, res) => {
+    try {
+      const payload = req.body;
+      const ref = payload?.data?.reference || payload?.reference || payload?.provider_reference;
+
+      if (!ref) {
+        return res.status(400).json({ error: 'Missing payment reference in webhook payload.' });
+      }
+
+      const provider = getPaymentProvider();
+      const callbackResult = await provider.processCallback(payload);
+
+      const allWithdrawals = dbManager.getWithdrawals();
+      const targetWithdrawal = allWithdrawals.find(
+        (w) => w.reference === callbackResult.reference || w.provider_reference === callbackResult.providerReference
+      );
+
+      if (!targetWithdrawal) {
+        return res.status(200).json({
+          handled: true,
+          message: 'Webhook received successfully. Reference not found in current store.',
+        });
+      }
+
+      // Idempotency check: Ignore if already in terminal state
+      if (['completed', 'paid', 'rejected', 'failed', 'cancelled'].includes(targetWithdrawal.status)) {
+        return res.status(200).json({
+          handled: true,
+          message: 'Idempotent webhook: Withdrawal is already in terminal state.',
+          status: targetWithdrawal.status,
+        });
+      }
+
+      const updateRes = dbManager.updateWithdrawalStatus(
+        targetWithdrawal.id,
+        callbackResult.newStatus,
+        callbackResult.failureReason || `Processed via webhook callback (${callbackResult.providerReference})`,
+        'SYSTEM_WEBHOOK',
+        (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress,
+        callbackResult.providerReference
+      );
+
+      return res.status(200).json({
+        handled: true,
+        success: updateRes.success,
+        withdrawal: updateRes.withdrawal,
+      });
+    } catch (err: any) {
+      console.error('Error handling payout webhook:', err);
+      return res.status(500).json({ error: 'Internal server error processing payout webhook.' });
+    }
   });
 
   app.get('/api/admin/referrals', requireAdminAuth, (req: AuthenticatedRequest, res) => {

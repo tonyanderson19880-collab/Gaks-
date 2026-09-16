@@ -1149,6 +1149,15 @@ class DatabaseManager {
     if (!w) return { success: false, message: 'Withdrawal not found' };
 
     const oldStatus = w.status;
+    const terminalStates = ['completed', 'paid', 'rejected', 'failed', 'cancelled'];
+
+    if (terminalStates.includes(oldStatus)) {
+      return {
+        success: false,
+        message: `Withdrawal has already reached terminal status (${oldStatus.toUpperCase()}) and cannot be changed.`,
+      };
+    }
+
     w.status = status;
     w.admin_notes = adminNotes;
     w.admin_note = adminNotes;

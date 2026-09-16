@@ -304,7 +304,7 @@ export const WithdrawPage: React.FC<WithdrawPageProps> = ({ onNavigate }) => {
 
           <div className="flex items-center gap-2 bg-purple-900/50 border border-purple-400/30 px-3.5 py-2 rounded-2xl text-xs font-semibold text-purple-100">
             <ShieldCheck className="w-4 h-4 text-[#B8F500]" />
-            <span>Encrypted Provider Payouts</span>
+            <span>TEST MODE — Simulated Clearing</span>
           </div>
         </div>
 
