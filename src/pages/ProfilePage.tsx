@@ -1,18 +1,20 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Mail, LogOut, User as UserIcon } from 'lucide-react';
+import { Mail, LogOut, User as UserIcon, ShieldCheck } from 'lucide-react';
 
 interface ProfilePageProps {
   onNavigate: (tab: string) => void;
 }
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
-  const { user, profile, logout } = useAuth();
+  const { user, profile, admin, logout } = useAuth();
 
   const handleLogout = async () => {
     await logout();
     onNavigate('login');
   };
+
+  const isAuthorizedAdmin = (user?.email || '').toLowerCase() === 'tonyanderson19880@gmail.com' || Boolean(admin);
 
   if (!user) {
     return (
@@ -90,6 +92,37 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
             <span>Sign Out</span>
           </button>
         </div>
+
+        {/* Admin Access Card (Only visible to authorized admin) */}
+        {isAuthorizedAdmin && (
+          <div className="bg-gradient-to-r from-zinc-950 to-[#0F172A] rounded-3xl p-6 border border-zinc-800 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-[#6C2BD9] text-[#B8F500] flex items-center justify-center shrink-0 shadow-lg">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-extrabold text-white">Administrator Portal</h3>
+                  <span className="bg-[#B8F500] text-[#0F172A] text-[9px] font-black px-2 py-0.5 rounded uppercase">
+                    SUPER ADMIN
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Access platform telemetry, withdrawal approvals, user management, and security logs.
+                </p>
+              </div>
+            </div>
+
+            <button
+              id="btn-[#admin-portal-access]"
+              onClick={() => onNavigate('admin')}
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#6C2BD9] hover:bg-[#5821B0] text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
+            >
+              <ShieldCheck className="w-4 h-4 text-[#B8F500]" />
+              <span>Launch Admin Dashboard</span>
+            </button>
+          </div>
+        )}
 
         {/* Account Details */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-zinc-200 shadow-xs space-y-4">
