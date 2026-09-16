@@ -33,7 +33,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [adminPassword, setAdminPassword] = useState('AdminSecure2026!');
   const [loginError, setLoginError] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'rewards' | 'withdrawals' | 'users' | 'referrals' | 'security' | 'settings'>('withdrawals');
+  const [activeTab, setActiveTab] = useState<'rewards' | 'withdrawals' | 'users' | 'referrals' | 'security' | 'audit_logs' | 'settings'>('withdrawals');
   const [metrics, setMetrics] = useState<any>(null);
   const [opportunities, setOpportunities] = useState<RewardOpportunity[]>([]);
   const [rewardSessions, setRewardSessions] = useState<RewardSession[]>([]);
@@ -42,6 +42,10 @@ export const AdminDashboardPage: React.FC = () => {
   const [usersList, setUsersList] = useState<any[]>([]);
   const [referralsList, setReferralsList] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+
+  // User details inspector modal state
+  const [selectedUserDetail, setSelectedUserDetail] = useState<any | null>(null);
+  const [loadingUserDetail, setLoadingUserDetail] = useState(false);
 
   // Withdrawal filters & actions
   const [withdrawalFilter, setWithdrawalFilter] = useState<string>('all');
@@ -206,6 +210,18 @@ export const AdminDashboardPage: React.FC = () => {
       showError(err.message || 'Simulation error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleInspectUser = async (userId: string) => {
+    try {
+      setLoadingUserDetail(true);
+      const detail = await api.getAdminUserDetail(userId);
+      setSelectedUserDetail(detail);
+    } catch (err: any) {
+      showError(err.message || 'Failed to fetch user details');
+    } finally {
+      setLoadingUserDetail(false);
     }
   };
 
@@ -492,6 +508,18 @@ export const AdminDashboardPage: React.FC = () => {
           >
             <Users className="w-3.5 h-3.5 text-[#B8F500]" />
             <span>Referrals Management ({referralsList.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('audit_logs')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 cursor-pointer ${
+              activeTab === 'audit_logs'
+                ? 'bg-[#6C2BD9] text-white'
+                : 'bg-zinc-900 text-zinc-400 hover:text-white'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-[#B8F500]" />
+            <span>Audit Logs ({auditLogs.length})</span>
           </button>
 
           <button
@@ -899,7 +927,15 @@ export const AdminDashboardPage: React.FC = () => {
                           {u.status}
                         </span>
                       </td>
-                      <td className="p-3 text-right">
+                      <td className="p-3 text-right space-x-2">
+                        <button
+                          onClick={() => handleInspectUser(u.id)}
+                          className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-[11px] transition-colors cursor-pointer inline-flex items-center gap-1"
+                          title="Inspect user profile & ledger history"
+                        >
+                          <Eye className="w-3 h-3 text-[#B8F500]" />
+                          <span>Inspect</span>
+                        </button>
                         <button
                           onClick={() => handleToggleUserStatus(u.id, u.status)}
                           className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors cursor-pointer ${
@@ -1255,6 +1291,66 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
         )}
 
+        {/* Tab 6: Administrative Audit Logs */}
+        {activeTab === 'audit_logs' && (
+          <div className="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-extrabold text-white">System Audit & Compliance Log</h3>
+                <p className="text-xs text-zinc-400">Immutable trace of all administrator actions, payout clearances, user status changes, and platform setting updates</p>
+              </div>
+              <span className="bg-[#6C2BD9] text-white text-xs font-bold px-3 py-1 rounded-xl">
+                {auditLogs.length} Log Records
+              </span>
+            </div>
+
+            {auditLogs.length === 0 ? (
+              <div className="py-12 text-center text-xs text-zinc-500">No admin audit log entries recorded yet.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-zinc-300">
+                  <thead className="bg-zinc-950 text-zinc-400 font-bold uppercase tracking-wider text-[10px]">
+                    <tr>
+                      <th className="p-3">Log ID</th>
+                      <th className="p-3">Admin ID</th>
+                      <th className="p-3">Action</th>
+                      <th className="p-3">Target Type / ID</th>
+                      <th className="p-3">Details</th>
+                      <th className="p-3">Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800 font-mono text-[11px]">
+                    {auditLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-zinc-800/50">
+                        <td className="p-3 text-zinc-400 font-bold">{log.id.slice(0, 10)}...</td>
+                        <td className="p-3 text-zinc-300">{log.admin_id ? log.admin_id.slice(0, 8) + '...' : 'System'}</td>
+                        <td className="p-3 font-sans font-bold">
+                          <span className={`px-2 py-0.5 rounded text-[10px] uppercase ${
+                            log.action?.includes('approved') ? 'bg-emerald-950 text-emerald-300' :
+                            log.action?.includes('rejected') || log.action?.includes('suspended') ? 'bg-red-950 text-red-300' :
+                            'bg-purple-950 text-purple-300'
+                          }`}>
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="p-3 font-sans text-zinc-400">
+                          <span className="font-bold text-white capitalize">{log.target_type}</span>: {log.target_id}
+                        </td>
+                        <td className="p-3 max-w-xs truncate text-zinc-400 font-sans">
+                          {typeof log.details === 'object' ? JSON.stringify(log.details) : log.details || '—'}
+                        </td>
+                        <td className="p-3 text-zinc-500">
+                          {new Date(log.created_at).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Modal: Create Opportunity */}
         {showCreateModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in">
@@ -1536,6 +1632,183 @@ export const AdminDashboardPage: React.FC = () => {
                   className="w-full py-2.5 rounded-xl bg-zinc-800 text-zinc-300 font-bold text-xs hover:bg-zinc-700 cursor-pointer"
                 >
                   Close Inspector
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Full User Details Inspector */}
+        {selectedUserDetail && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in overflow-y-auto">
+            <div className="bg-[#0F172A] border border-zinc-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl space-y-5 my-8 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-800 sticky top-0 bg-[#0F172A] z-10 pt-1">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-extrabold text-white">User Account Inspector</h3>
+                    <span className="bg-[#6C2BD9] text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+                      {selectedUserDetail.profile?.role || 'user'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-400 font-mono mt-0.5">{selectedUserDetail.profile?.id}</p>
+                </div>
+                <button
+                  onClick={() => setSelectedUserDetail(null)}
+                  className="p-1 text-zinc-400 hover:text-white rounded-lg cursor-pointer"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Profile & Wallet Header */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-zinc-950 p-3 rounded-2xl border border-zinc-800">
+                  <span className="text-[10px] uppercase font-bold text-zinc-400">Available Balance</span>
+                  <div className="text-lg font-black text-[#B8F500]">
+                    ₦{(selectedUserDetail.wallet?.available_balance || 0).toFixed(2)}
+                  </div>
+                </div>
+                <div className="bg-zinc-950 p-3 rounded-2xl border border-zinc-800">
+                  <span className="text-[10px] uppercase font-bold text-zinc-400">Total Earned</span>
+                  <div className="text-lg font-black text-white">
+                    ₦{(selectedUserDetail.wallet?.total_earned || 0).toFixed(2)}
+                  </div>
+                </div>
+                <div className="bg-zinc-950 p-3 rounded-2xl border border-zinc-800">
+                  <span className="text-[10px] uppercase font-bold text-zinc-400">Total Withdrawn</span>
+                  <div className="text-lg font-black text-zinc-300">
+                    ₦{(selectedUserDetail.wallet?.total_withdrawn || 0).toFixed(2)}
+                  </div>
+                </div>
+                <div className="bg-zinc-950 p-3 rounded-2xl border border-zinc-800">
+                  <span className="text-[10px] uppercase font-bold text-zinc-400">Account Status</span>
+                  <div className={`text-sm font-black uppercase mt-1 ${
+                    selectedUserDetail.profile?.account_status === 'active' ? 'text-emerald-400' : 'text-red-400'
+                  }`}>
+                    {selectedUserDetail.profile?.account_status || 'active'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Personal & Banking Information */}
+              <div className="bg-zinc-950 rounded-2xl p-4 space-y-2 text-xs border border-zinc-800 font-mono">
+                <h4 className="font-sans font-extrabold text-white text-xs uppercase text-zinc-400 pb-1 border-b border-zinc-800">
+                  Profile & Settlement Banking Information
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  <div>
+                    <span className="text-zinc-500 block font-sans text-[11px]">Full Name</span>
+                    <span className="text-white font-bold font-sans">{selectedUserDetail.profile?.full_name || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block font-sans text-[11px]">Email Address</span>
+                    <span className="text-white">{selectedUserDetail.profile?.email || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block font-sans text-[11px]">Phone Number</span>
+                    <span className="text-zinc-300">{selectedUserDetail.profile?.phone || 'Not provided'}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block font-sans text-[11px]">Referral Code</span>
+                    <span className="text-[#6C2BD9] font-bold">{selectedUserDetail.profile?.referral_code || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block font-sans text-[11px]">Bank Name</span>
+                    <span className="text-zinc-300 font-sans">{selectedUserDetail.profile?.bank_name || 'Not configured'}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block font-sans text-[11px]">Account Number</span>
+                    <span className="text-zinc-300">{selectedUserDetail.profile?.account_number || 'Not configured'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Ledger History */}
+              <div className="space-y-2">
+                <h4 className="font-extrabold text-white text-xs uppercase text-zinc-400">Recent Ledger Activity</h4>
+                {selectedUserDetail.ledgerEntries?.length === 0 ? (
+                  <p className="text-xs text-zinc-500 py-2">No ledger entries for this user.</p>
+                ) : (
+                  <div className="max-h-40 overflow-y-auto bg-zinc-950 rounded-2xl p-3 border border-zinc-800">
+                    <table className="w-full text-left text-[11px] text-zinc-300">
+                      <thead className="text-zinc-500 uppercase text-[9px] font-bold">
+                        <tr>
+                          <th className="pb-2">Type</th>
+                          <th className="pb-2">Amount</th>
+                          <th className="pb-2">Description</th>
+                          <th className="pb-2">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/60 font-mono">
+                        {selectedUserDetail.ledgerEntries?.slice(0, 10).map((l: any) => (
+                          <tr key={l.id}>
+                            <td className="py-1.5 uppercase font-bold text-zinc-400">{l.entry_type}</td>
+                            <td className="py-1.5 font-bold text-[#B8F500]">₦{Number(l.amount).toFixed(2)}</td>
+                            <td className="py-1.5 font-sans text-zinc-300 truncate max-w-xs">{l.description}</td>
+                            <td className="py-1.5 text-zinc-500">{new Date(l.created_at).toLocaleDateString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Recent Withdrawals */}
+              <div className="space-y-2">
+                <h4 className="font-extrabold text-white text-xs uppercase text-zinc-400">Withdrawal Requests</h4>
+                {selectedUserDetail.withdrawals?.length === 0 ? (
+                  <p className="text-xs text-zinc-500 py-2">No withdrawal requests found.</p>
+                ) : (
+                  <div className="max-h-36 overflow-y-auto bg-zinc-950 rounded-2xl p-3 border border-zinc-800">
+                    <table className="w-full text-left text-[11px] text-zinc-300">
+                      <thead className="text-zinc-500 uppercase text-[9px] font-bold">
+                        <tr>
+                          <th className="pb-2">Ref</th>
+                          <th className="pb-2">Amount</th>
+                          <th className="pb-2">Status</th>
+                          <th className="pb-2">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/60 font-mono">
+                        {selectedUserDetail.withdrawals?.map((w: any) => (
+                          <tr key={w.id}>
+                            <td className="py-1.5 text-zinc-400">{w.reference}</td>
+                            <td className="py-1.5 font-bold text-white">₦{Number(w.amount).toFixed(2)}</td>
+                            <td className="py-1.5 uppercase font-bold text-[#B8F500]">{w.status}</td>
+                            <td className="py-1.5 text-zinc-500">{new Date(w.created_at).toLocaleDateString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Control Action Buttons */}
+              <div className="flex gap-3 pt-3 border-t border-zinc-800">
+                <button
+                  onClick={async () => {
+                    await handleToggleUserStatus(
+                      selectedUserDetail.profile.id,
+                      selectedUserDetail.profile.account_status || 'active'
+                    );
+                    setSelectedUserDetail(null);
+                  }}
+                  className={`flex-1 py-2.5 rounded-xl font-extrabold text-xs transition-colors cursor-pointer ${
+                    selectedUserDetail.profile?.account_status === 'active'
+                      ? 'bg-red-900 hover:bg-red-800 text-white'
+                      : 'bg-emerald-800 hover:bg-emerald-700 text-white'
+                  }`}
+                >
+                  {selectedUserDetail.profile?.account_status === 'active' ? 'Suspend User Account' : 'Reactivate User Account'}
+                </button>
+
+                <button
+                  onClick={() => setSelectedUserDetail(null)}
+                  className="px-5 py-2.5 rounded-xl bg-zinc-800 text-zinc-300 font-bold text-xs hover:bg-zinc-700 cursor-pointer"
+                >
+                  Close
                 </button>
               </div>
             </div>

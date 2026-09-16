@@ -630,8 +630,434 @@ export const supabaseDb = {
     if (error) throw error;
     return data;
   },
+
+  // ==================================================================
+  // ADMIN DASHBOARD DATABASE OPERATIONS
+  // ==================================================================
+
+  // Admin Overview Metrics
+  async getAdminOverview(): Promise<any> {
+    const sb = getSupabaseClient();
+    if (!sb) throw new Error('Supabase client is not available');
+
+    try {
+      const [
+        { count: totalUsers },
+        { count: activeUsers },
+        { data: rewards },
+        { data: withdrawals },
+        { data: referrals },
+        { count: fraudEventsCount },
+      ] = await Promise.all([
+        sb.from('profiles').select('*', { count: 'exact', head: true }),
+        sb.from('profiles').select('*', { count: 'exact', head: true }).eq('account_status', 'active'),
+        sb.from('ledger_entries').select('amount, entry_type').in('entry_type', ['reward_credit', 'reward']),
+        sb.from('withdrawals').select('amount, status'),
+        sb.from('referrals').select('reward_amount, status'),
+        sb.from('fraud_events').select('*', { count: 'exact', head: true }),
+      ]);
+
+      const totalRewardsIssued = (rewards || []).reduce((sum: number, r: any) => sum + Number(r.amount || 0), 0);
+      const totalReferralBonusesPaid = (referrals || [])
+        .filter((r: any) => r.status === 'rewarded' || r.status === 'completed')
+        .reduce((sum: number, r: any) => sum + Number(r.reward_amount || 50), 0);
+
+      const allWithdrawals = withdrawals || [];
+      const totalWithdrawn = allWithdrawals
+        .filter((w: any) => w.status === 'completed' || w.status === 'approved')
+        .reduce((sum: number, w: any) => sum + Number(w.amount || 0), 0);
+
+      const pendingWithdrawals = allWithdrawals.filter((w: any) => w.status === 'pending' || w.status === 'processing').length;
+      const approvedWithdrawals = allWithdrawals.filter((w: any) => w.status === 'completed' || w.status === 'approved').length;
+      const rejectedWithdrawals = allWithdrawals.filter((w: any) => w.status === 'rejected' || w.status === 'failed').length;
+
+      return {
+        metrics: {
+          totalUsers: totalUsers || 0,
+          activeUsers: activeUsers || 0,
+          totalRewardsCompleted: (rewards || []).length,
+          totalRewardsIssued,
+          totalReferralBonusesPaid,
+          totalWithdrawals: allWithdrawals.length,
+          totalWithdrawn,
+          pendingWithdrawals,
+          approvedWithdrawals,
+          rejectedWithdrawals,
+          fraudEventsCount: fraudEventsCount || 0,
+        },
+      };
+    } catch (err: any) {
+      console.warn('Notice: Failed to load Supabase admin overview metrics:', err);
+      return { metrics: { totalUsers: 0, activeUsers: 0, totalRewardsIssued: 0, totalWithdrawn: 0, pendingWithdrawals: 0 } };
+    }
+  },
+
+  // Admin User List
+  async getAdminUsers(): Promise<any[]> {
+    const sb = getSupabaseClient();
+    if (!sb) return [];
+
+    try {
+      const { data: profiles, error } = await sb
+        .from('profiles')
+        .select(`
+          id,
+          full_name,
+          email,
+          created_at,
+          account_status,
+          role,
+          referral_code,
+          wallets (available_balance, total_earned, total_withdrawn)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return (profiles || []).map((p: any) => {
+        const wallet = Array.isArray(p.wallets) ? p.wallets[0] : p.wallets;
+        return {
+          id: p.id,
+          full_name: p.full_name || 'Anonymous Earner',
+          email: p.email,
+          created_at: p.created_at,
+          status: p.account_status || 'active',
+          role: p.role || 'user',
+          referral_code: p.referral_code || 'N/A',
+          available_balance: Number(wallet?.available_balance || 0),
+          total_earned: Number(wallet?.total_earned || 0),
+          total_withdrawn: Number(wallet?.total_withdrawn || 0),
+        };
+      });
+    } catch (err) {
+      console.warn('Notice: Failed to fetch Supabase admin users:', err);
+      return [];
+    }
+  },
+
+  // Admin User Details Inspector
+  async getAdminUserDetail(userId: string): Promise<any> {
+    const sb = getSupabaseClient();
+    if (!sb) return null;
+
+    try {
+      const [
+        { data: profile },
+        { data: wallet },
+        { data: rewardSessions },
+        { data: ledgerEntries },
+        { data: withdrawals },
+        { data: referrals },
+        { data: fraudEvents },
+      ] = await Promise.all([
+        sb.from('profiles').select('*').eq('id', userId).maybeSingle(),
+        sb.from('wallets').select('*').eq('user_id', userId).maybeSingle(),
+        sb.from('reward_sessions').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+        sb.from('ledger_entries').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+        sb.from('withdrawals').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+        sb.from('referrals').select('*').eq('referrer_user_id', userId).order('created_at', { ascending: false }),
+        sb.from('fraud_events').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+      ]);
+
+      return {
+        profile,
+        wallet,
+        rewardSessions: rewardSessions || [],
+        ledgerEntries: ledgerEntries || [],
+        withdrawals: withdrawals || [],
+        referrals: referrals || [],
+        fraudEvents: fraudEvents || [],
+      };
+    } catch (err) {
+      console.warn('Notice: Failed to fetch user details:', err);
+      return null;
+    }
+  },
+
+  // Admin Withdrawals List
+  async getAdminWithdrawals(): Promise<any[]> {
+    const sb = getSupabaseClient();
+    if (!sb) return [];
+
+    try {
+      const { data, error } = await sb
+        .from('withdrawals')
+        .select(`
+          *,
+          profiles (full_name, email)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return (data || []).map((w: any) => ({
+        id: w.id,
+        user_id: w.user_id,
+        user_name: w.profiles?.full_name || 'Earner',
+        user_email: w.profiles?.email || 'N/A',
+        amount: Number(w.amount),
+        currency: w.currency || 'NGN',
+        payment_method: w.payment_method,
+        account_details: w.account_details || {},
+        status: w.status,
+        reference: w.reference,
+        admin_notes: w.admin_note || w.admin_notes,
+        rejection_reason: w.rejection_reason,
+        processed_at: w.processed_at,
+        created_at: w.created_at,
+      }));
+    } catch (err) {
+      console.warn('Notice: Failed to load Supabase admin withdrawals:', err);
+      return [];
+    }
+  },
+
+  // Admin Review Withdrawal (Approve/Reject)
+  async adminReviewWithdrawal(
+    id: string,
+    status: string,
+    adminNotes?: string,
+    rejectionReason?: string
+  ): Promise<any> {
+    const sb = getSupabaseClient();
+    if (!sb) throw new Error('Supabase client is not available');
+
+    const { data, error } = await sb.rpc('admin_review_withdrawal', {
+      p_withdrawal_id: id,
+      p_status: status,
+      p_rejection_reason: rejectionReason || null,
+      p_admin_notes: adminNotes || null,
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Failed to process withdrawal review.');
+    }
+    return data;
+  },
+
+  // Admin Toggle User Status (Suspend / Active)
+  async adminUpdateUserStatus(userId: string, status: string): Promise<any> {
+    const sb = getSupabaseClient();
+    if (!sb) throw new Error('Supabase client is not available');
+
+    const { data, error } = await sb.rpc('admin_update_user_status', {
+      p_target_user_id: userId,
+      p_status: status,
+    });
+
+    if (error) {
+      // Fallback direct update if RPC is missing
+      const { error: updErr } = await sb
+        .from('profiles')
+        .update({ account_status: status, updated_at: new Date().toISOString() })
+        .eq('id', userId);
+      if (updErr) throw updErr;
+      return { success: true };
+    }
+    return data;
+  },
+
+  // Admin Reward Opportunities Management
+  async createAdminRewardOpportunity(body: any): Promise<any> {
+    const sb = getSupabaseClient();
+    if (!sb) throw new Error('Supabase client is not available');
+
+    const newId = `opp_${Date.now()}`;
+    const { data, error } = await sb
+      .from('reward_opportunities')
+      .insert({
+        id: newId,
+        name: body.name || body.title,
+        description: body.description,
+        reward_amount: body.reward_amount,
+        estimated_duration: body.estimated_duration,
+        daily_limit: body.daily_limit || 10,
+        status: body.status || 'active',
+        provider: body.provider || 'Demo',
+        category: body.category || 'video',
+      })
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return { success: true, opportunity: data };
+  },
+
+  async updateAdminRewardOpportunity(id: string, body: any): Promise<any> {
+    const sb = getSupabaseClient();
+    if (!sb) throw new Error('Supabase client is not available');
+
+    const { data, error } = await sb
+      .from('reward_opportunities')
+      .update({
+        name: body.name || body.title,
+        description: body.description,
+        reward_amount: body.reward_amount,
+        estimated_duration: body.estimated_duration,
+        daily_limit: body.daily_limit,
+        status: body.status,
+        provider: body.provider,
+        category: body.category,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return { success: true, opportunity: data };
+  },
+
+  async toggleAdminRewardOpportunity(id: string): Promise<any> {
+    const sb = getSupabaseClient();
+    if (!sb) throw new Error('Supabase client is not available');
+
+    const { data: curr } = await sb
+      .from('reward_opportunities')
+      .select('status')
+      .eq('id', id)
+      .single();
+
+    const newStatus = curr?.status === 'active' ? 'inactive' : 'active';
+    const { data, error } = await sb
+      .from('reward_opportunities')
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return { success: true, opportunity: data };
+  },
+
+  // Admin Referrals List
+  async getAdminReferrals(): Promise<any[]> {
+    const sb = getSupabaseClient();
+    if (!sb) return [];
+
+    try {
+      const { data, error } = await sb
+        .from('referrals')
+        .select(`
+          *,
+          referrer:referrer_user_id (full_name, email),
+          referred:referred_user_id (full_name, email)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return (data || []).map((r: any) => ({
+        id: r.id,
+        referrer_user_id: r.referrer_user_id,
+        referrer_email: r.referrer?.email || 'N/A',
+        referred_user_id: r.referred_user_id,
+        referred_name: r.referred?.full_name || 'Member',
+        referred_email: r.referred?.email || 'N/A',
+        referral_code: r.referral_code,
+        status: r.status,
+        qualification_status: r.qualification_status,
+        reward_amount: Number(r.reward_amount || 50),
+        created_at: r.created_at,
+      }));
+    } catch (err) {
+      console.warn('Notice: Failed to fetch admin referrals:', err);
+      return [];
+    }
+  },
+
+  // Admin Review Fraud Event
+  async resolveAdminFraudEvent(id: string, resolution: string, resolved: boolean): Promise<any> {
+    const sb = getSupabaseClient();
+    if (!sb) throw new Error('Supabase client is not available');
+
+    const { data, error } = await sb.rpc('admin_resolve_fraud_event', {
+      p_event_id: id,
+      p_resolution: resolution,
+      p_resolved: resolved,
+    });
+
+    if (error) {
+      const { error: updErr } = await sb
+        .from('fraud_events')
+        .update({ description: `[Resolved] ${resolution}` })
+        .eq('id', id);
+      if (updErr) throw updErr;
+      return { success: true };
+    }
+    return data;
+  },
+
+  // Admin Audit Logs
+  async getAdminAuditLogs(): Promise<any[]> {
+    const sb = getSupabaseClient();
+    if (!sb) return [];
+
+    try {
+      const { data, error } = await sb
+        .from('audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('Notice: Failed to fetch admin audit logs:', err);
+      return [];
+    }
+  },
+
+  // Admin System Settings
+  async getAdminSettings(): Promise<any> {
+    const sb = getSupabaseClient();
+    if (!sb) return { config: {} };
+
+    try {
+      const { data } = await sb
+        .from('system_config')
+        .select('*')
+        .eq('id', 'default')
+        .maybeSingle();
+
+      return {
+        config: data || {
+          minimum_withdrawal: 500,
+          maximum_withdrawal: 50000,
+          daily_withdrawal_limit: 100000,
+          max_pending_withdrawals: 1,
+          referral_reward_amount: 50,
+          demo_mode: true,
+        },
+      };
+    } catch {
+      return { config: {} };
+    }
+  },
+
+  async updateAdminSettings(settings: any): Promise<any> {
+    const sb = getSupabaseClient();
+    if (!sb) throw new Error('Supabase client is not available');
+
+    const { data, error } = await sb.rpc('admin_update_platform_settings', {
+      p_settings: settings,
+    });
+
+    if (error) {
+      const { error: updErr } = await sb
+        .from('system_config')
+        .upsert({
+          id: 'default',
+          ...settings,
+          updated_at: new Date().toISOString(),
+        });
+      if (updErr) throw updErr;
+      return { success: true };
+    }
+    return data;
+  },
 };
 
 // Export alias for consistency
 export const supabaseDatabase = supabaseDb;
+
 

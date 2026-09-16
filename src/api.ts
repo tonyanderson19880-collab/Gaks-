@@ -543,72 +543,190 @@ export const api = {
   },
 
   // Admin (optional platform management)
-  adminLogin: (body: any) =>
-    request<{ token: string; admin: any }>('/api/admin/login', {
+  adminLogin: async (body: any) => {
+    if (isSupabaseConfigured()) {
+      const sb = getSupabaseClient();
+      if (!sb) throw new Error('Supabase client is not available');
+      const { data, error } = await sb.auth.signInWithPassword({
+        email: (body.email || '').trim(),
+        password: body.password,
+      });
+      if (error) throw new Error(error.message || 'Invalid admin credentials');
+      const profile = (await sb.from('profiles').select('*').eq('id', data.user.id).single())?.data;
+      if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
+        throw new Error('Access Denied: Account is not an authorized administrator.');
+      }
+      const adminObj = {
+        id: data.user.id,
+        email: data.user.email,
+        full_name: profile.full_name || 'Administrator',
+        role: profile.role,
+      };
+      setAdminToken(data.session.access_token);
+      return { token: data.session.access_token, admin: adminObj };
+    }
+    return request<{ token: string; admin: any }>('/api/admin/login', {
       method: 'POST',
       body: JSON.stringify(body),
-    }),
-  getAdminMe: () => request<{ admin: any }>('/api/admin/me', {}, true),
-  getAdminOverview: () => request<any>('/api/admin/overview', {}, true),
-  getAdminUsers: () => request<{ users: any[] }>('/api/admin/users', {}, true),
-  updateUserStatus: (id: string, status: string) =>
-    request<{ success: boolean; status: string }>(
+    });
+  },
+
+  getAdminMe: async () => {
+    if (isSupabaseConfigured()) {
+      const sb = getSupabaseClient();
+      const user = (await sb?.auth.getUser())?.data.user;
+      if (!user) throw new Error('Unauthorized');
+      const profile = (await sb?.from('profiles').select('*').eq('id', user.id).single())?.data;
+      if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
+        throw new Error('Unauthorized');
+      }
+      return {
+        admin: {
+          id: user.id,
+          email: user.email,
+          full_name: profile.full_name || 'Administrator',
+          role: profile.role,
+        },
+      };
+    }
+    return request<{ admin: any }>('/api/admin/me', {}, true);
+  },
+
+  getAdminOverview: async () => {
+    if (isSupabaseConfigured()) {
+      return supabaseDb.getAdminOverview();
+    }
+    return request<any>('/api/admin/overview', {}, true);
+  },
+
+  getAdminUsers: async () => {
+    if (isSupabaseConfigured()) {
+      const users = await supabaseDb.getAdminUsers();
+      return { users };
+    }
+    return request<{ users: any[] }>('/api/admin/users', {}, true);
+  },
+
+  getAdminUserDetail: async (userId: string) => {
+    if (isSupabaseConfigured()) {
+      return supabaseDb.getAdminUserDetail(userId);
+    }
+    return request<any>(`/api/admin/users/${userId}/detail`, {}, true);
+  },
+
+  updateUserStatus: async (id: string, status: string) => {
+    if (isSupabaseConfigured()) {
+      const res = await supabaseDb.adminUpdateUserStatus(id, status);
+      return { success: true, status };
+    }
+    return request<{ success: boolean; status: string }>(
       `/api/admin/users/${id}/status`,
       {
         method: 'POST',
         body: JSON.stringify({ status }),
       },
       true
-    ),
-  getAdminRewards: () =>
-    request<{ sessions: any[]; fraudEvents: any[]; opportunities?: RewardOpportunity[] }>(
+    );
+  },
+
+  getAdminRewards: async () => {
+    if (isSupabaseConfigured()) {
+      const opportunities = await supabaseDb.getRewardOpportunities();
+      return { sessions: [], fraudEvents: [], opportunities };
+    }
+    return request<{ sessions: any[]; fraudEvents: any[]; opportunities?: RewardOpportunity[] }>(
       '/api/admin/rewards',
       {},
       true
-    ),
-  getAdminRewardOpportunities: () =>
-    request<{ opportunities: RewardOpportunity[] }>('/api/admin/rewards/opportunities', {}, true),
-  createAdminRewardOpportunity: (body: Partial<RewardOpportunity>) =>
-    request<{ success: boolean; opportunity: RewardOpportunity }>(
+    );
+  },
+
+  getAdminRewardOpportunities: async () => {
+    if (isSupabaseConfigured()) {
+      const opportunities = await supabaseDb.getRewardOpportunities();
+      return { opportunities };
+    }
+    return request<{ opportunities: RewardOpportunity[] }>('/api/admin/rewards/opportunities', {}, true);
+  },
+
+  createAdminRewardOpportunity: async (body: Partial<RewardOpportunity>) => {
+    if (isSupabaseConfigured()) {
+      return supabaseDb.createAdminRewardOpportunity(body);
+    }
+    return request<{ success: boolean; opportunity: RewardOpportunity }>(
       '/api/admin/rewards/opportunities',
       {
         method: 'POST',
         body: JSON.stringify(body),
       },
       true
-    ),
-  updateAdminRewardOpportunity: (id: string, body: Partial<RewardOpportunity>) =>
-    request<{ success: boolean; opportunity: RewardOpportunity }>(
+    );
+  },
+
+  updateAdminRewardOpportunity: async (id: string, body: Partial<RewardOpportunity>) => {
+    if (isSupabaseConfigured()) {
+      return supabaseDb.updateAdminRewardOpportunity(id, body);
+    }
+    return request<{ success: boolean; opportunity: RewardOpportunity }>(
       `/api/admin/rewards/opportunities/${id}`,
       {
         method: 'PUT',
         body: JSON.stringify(body),
       },
       true
-    ),
-  toggleAdminRewardOpportunity: (id: string) =>
-    request<{ success: boolean; opportunity: RewardOpportunity }>(
+    );
+  },
+
+  toggleAdminRewardOpportunity: async (id: string) => {
+    if (isSupabaseConfigured()) {
+      return supabaseDb.toggleAdminRewardOpportunity(id);
+    }
+    return request<{ success: boolean; opportunity: RewardOpportunity }>(
       `/api/admin/rewards/opportunities/${id}/toggle`,
       {
         method: 'PATCH',
       },
       true
-    ),
-  getAdminWithdrawals: () => request<{ withdrawals: Withdrawal[] }>('/api/admin/withdrawals', {}, true),
-  reviewWithdrawal: (id: string, body: { status: string; adminNotes: string }) =>
-    request<{ success: boolean; withdrawal: Withdrawal }>(
+    );
+  },
+
+  getAdminWithdrawals: async () => {
+    if (isSupabaseConfigured()) {
+      const withdrawals = await supabaseDb.getAdminWithdrawals();
+      return { withdrawals };
+    }
+    return request<{ withdrawals: Withdrawal[] }>('/api/admin/withdrawals', {}, true);
+  },
+
+  reviewWithdrawal: async (id: string, body: { status: string; adminNotes: string }) => {
+    if (isSupabaseConfigured()) {
+      const res = await supabaseDb.adminReviewWithdrawal(id, body.status, body.adminNotes);
+      return { success: true, withdrawal: res };
+    }
+    return request<{ success: boolean; withdrawal: Withdrawal }>(
       `/api/admin/withdrawals/${id}/review`,
       {
         method: 'POST',
         body: JSON.stringify(body),
       },
       true
-    ),
-  updateWithdrawalStatus: (
+    );
+  },
+
+  updateWithdrawalStatus: async (
     id: string,
     body: { status: string; rejectionReason?: string; providerReference?: string; adminNotes?: string }
-  ) =>
-    request<{ success: boolean; withdrawal: Withdrawal }>(
+  ) => {
+    if (isSupabaseConfigured()) {
+      const res = await supabaseDb.adminReviewWithdrawal(
+        id,
+        body.status,
+        body.rejectionReason || body.adminNotes || body.providerReference,
+        body.rejectionReason
+      );
+      return { success: true, withdrawal: res };
+    }
+    return request<{ success: boolean; withdrawal: Withdrawal }>(
       `/api/admin/withdrawals/${id}/review`,
       {
         method: 'POST',
@@ -620,56 +738,122 @@ export const api = {
         }),
       },
       true
-    ),
-  simulateAdminDemoPayout: (id: string) =>
-    request<{ success: boolean; simulation: any; withdrawal: Withdrawal }>(
+    );
+  },
+
+  simulateAdminDemoPayout: async (id: string) => {
+    if (isSupabaseConfigured()) {
+      const res = await supabaseDb.adminReviewWithdrawal(id, 'completed', 'Simulated Demo Payout Completed');
+      return {
+        success: true,
+        simulation: { success: true, message: 'Simulated payout clearance completed successfully' },
+        withdrawal: res,
+      };
+    }
+    return request<{ success: boolean; simulation: any; withdrawal: Withdrawal }>(
       `/api/admin/withdrawals/${id}/simulate-demo`,
       {
         method: 'POST',
       },
       true
-    ),
-  getAdminReferrals: () => request<{ referrals: any[] }>('/api/admin/referrals', {}, true),
-  reviewAdminReferral: (id: string, status: string, qualification_status: string) =>
-    request<{ success: boolean; referral: any }>(
+    );
+  },
+
+  getAdminReferrals: async () => {
+    if (isSupabaseConfigured()) {
+      const referrals = await supabaseDb.getAdminReferrals();
+      return { referrals };
+    }
+    return request<{ referrals: any[] }>('/api/admin/referrals', {}, true);
+  },
+
+  reviewAdminReferral: async (id: string, status: string, qualification_status: string) => {
+    if (isSupabaseConfigured()) {
+      const sb = getSupabaseClient();
+      if (!sb) throw new Error('Supabase client is not available');
+      const { data, error } = await sb
+        .from('referrals')
+        .update({ status, qualification_status })
+        .eq('id', id)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return { success: true, referral: data };
+    }
+    return request<{ success: boolean; referral: any }>(
       `/api/admin/referrals/${id}/review`,
       {
         method: 'POST',
         body: JSON.stringify({ status, qualification_status }),
       },
       true
-    ),
-  getAdminFraudEvents: () => request<{ fraudEvents: any[] }>('/api/admin/fraud-events', {}, true),
-  reviewAdminFraudEvent: (id: string, resolution: string, resolved: boolean) =>
-    request<{ success: boolean; event: any }>(
+    );
+  },
+
+  getAdminFraudEvents: async () => {
+    if (isSupabaseConfigured()) {
+      const sb = getSupabaseClient();
+      if (!sb) return { fraudEvents: [] };
+      const { data } = await sb.from('fraud_events').select('*').order('created_at', { ascending: false });
+      return { fraudEvents: data || [] };
+    }
+    return request<{ fraudEvents: any[] }>('/api/admin/fraud-events', {}, true);
+  },
+
+  reviewAdminFraudEvent: async (id: string, resolution: string, resolved: boolean) => {
+    if (isSupabaseConfigured()) {
+      return supabaseDb.resolveAdminFraudEvent(id, resolution, resolved);
+    }
+    return request<{ success: boolean; event: any }>(
       `/api/admin/fraud-events/${id}/resolve`,
       {
         method: 'POST',
         body: JSON.stringify({ resolution, resolved }),
       },
       true
-    ),
-  updateAdminUserStatus: (userId: string, status: string) =>
-    request<{ success: boolean; user: any }>(
+    );
+  },
+
+  updateAdminUserStatus: async (userId: string, status: string) => {
+    if (isSupabaseConfigured()) {
+      return supabaseDb.adminUpdateUserStatus(userId, status);
+    }
+    return request<{ success: boolean; user: any }>(
       `/api/admin/users/${userId}/status`,
       {
         method: 'POST',
         body: JSON.stringify({ status }),
       },
       true
-    ),
-  getAdminSettings: () => request<{ config: SystemConfig }>('/api/admin/settings', {}, true),
-  updateAdminSettings: (body: Partial<SystemConfig>) =>
-    request<{ config: SystemConfig }>(
+    );
+  },
+
+  getAdminSettings: async () => {
+    if (isSupabaseConfigured()) {
+      return supabaseDb.getAdminSettings();
+    }
+    return request<{ config: SystemConfig }>('/api/admin/settings', {}, true);
+  },
+
+  updateAdminSettings: async (body: Partial<SystemConfig>) => {
+    if (isSupabaseConfigured()) {
+      return supabaseDb.updateAdminSettings(body);
+    }
+    return request<{ config: SystemConfig }>(
       '/api/admin/settings',
       {
         method: 'PUT',
         body: JSON.stringify(body),
       },
       true
-    ),
-  updatePlatformSettings: (body: any) =>
-    request<{ config: SystemConfig }>(
+    );
+  },
+
+  updatePlatformSettings: async (body: any) => {
+    if (isSupabaseConfigured()) {
+      return supabaseDb.updateAdminSettings(body);
+    }
+    return request<{ config: SystemConfig }>(
       '/api/admin/settings',
       {
         method: 'PUT',
@@ -685,6 +869,14 @@ export const api = {
         }),
       },
       true
-    ),
-  getAdminAuditLogs: () => request<{ auditLogs: any[] }>('/api/admin/audit-logs', {}, true),
+    );
+  },
+
+  getAdminAuditLogs: async () => {
+    if (isSupabaseConfigured()) {
+      const auditLogs = await supabaseDb.getAdminAuditLogs();
+      return { auditLogs };
+    }
+    return request<{ auditLogs: any[] }>('/api/admin/audit-logs', {}, true);
+  },
 };

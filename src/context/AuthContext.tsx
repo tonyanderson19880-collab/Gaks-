@@ -145,6 +145,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setUser(formatSupabaseUser(sbUser, sbData.profile));
               setProfile(sbData.profile);
               setWallet(sbData.wallet);
+              if (sbData.profile && ['admin', 'super_admin'].includes(sbData.profile.role)) {
+                setAdmin({
+                  id: sbUser.id,
+                  email: sbUser.email,
+                  full_name: sbData.profile.full_name || 'Administrator',
+                  role: sbData.profile.role,
+                });
+              }
             }
           } catch (err) {
             console.error('Failed to restore Supabase session on startup:', err);
@@ -161,10 +169,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setUser(formatSupabaseUser(session.user, sbData.profile));
               setProfile(sbData.profile);
               setWallet(sbData.wallet);
+              if (sbData.profile && ['admin', 'super_admin'].includes(sbData.profile.role)) {
+                setAdmin({
+                  id: session.user.id,
+                  email: session.user.email,
+                  full_name: sbData.profile.full_name || 'Administrator',
+                  role: sbData.profile.role,
+                });
+              }
             } else if (event === 'SIGNED_OUT') {
               setUser(null);
               setProfile(null);
               setWallet(null);
+              setAdmin(null);
             }
           });
           authSubscription = listener.subscription;
