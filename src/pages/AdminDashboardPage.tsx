@@ -355,30 +355,30 @@ export const AdminDashboardPage: React.FC = () => {
   });
 
   return (
-    <div className="bg-[#0F172A] min-h-screen pb-24 md:pb-12 pt-6 text-zinc-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+    <div className="bg-[#0F172A] min-h-screen pb-24 md:pb-12 pt-6 text-zinc-100 overflow-x-hidden w-full max-w-full">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 w-full max-w-full">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#6C2BD9] text-[#B8F500] flex items-center justify-center font-black text-lg">
+            <div className="w-10 h-10 rounded-xl bg-[#6C2BD9] text-[#B8F500] flex items-center justify-center font-black text-lg shrink-0">
               SE
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight truncate">
                   Swift Earn Control Panel
                 </h1>
-                <span className="bg-[#B8F500] text-[#0F172A] font-extrabold text-[10px] px-2 py-0.5 rounded uppercase">
+                <span className="bg-[#B8F500] text-[#0F172A] font-extrabold text-[10px] px-2 py-0.5 rounded uppercase shrink-0">
                   DEMO MODE
                 </span>
               </div>
-              <p className="text-xs text-zinc-400">
+              <p className="text-xs text-zinc-400 truncate">
                 Logged in as <strong className="text-zinc-200">{admin.email}</strong> ({admin.role})
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={fetchAdminData}
               disabled={loading}
@@ -413,49 +413,49 @@ export const AdminDashboardPage: React.FC = () => {
 
         {/* Platform Overview Metric Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-          <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 space-y-1">
+          <div className="bg-zinc-900 p-3 sm:p-4 rounded-2xl border border-zinc-800 space-y-1">
             <span className="text-[10px] uppercase font-bold text-zinc-400">Total Users</span>
-            <div className="text-2xl font-black text-white">{metrics?.totalUsers || usersList.length || 0}</div>
-            <span className="text-[10px] text-zinc-500">Registered members</span>
+            <div className="text-xl sm:text-2xl font-black text-white">{metrics?.totalUsers || usersList.length || 0}</div>
+            <span className="text-[10px] text-zinc-500 block truncate">Registered members</span>
           </div>
 
-          <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 space-y-1">
+          <div className="bg-zinc-900 p-3 sm:p-4 rounded-2xl border border-zinc-800 space-y-1">
             <span className="text-[10px] uppercase font-bold text-zinc-400">Rewards Verified</span>
-            <div className="text-2xl font-black text-[#B8F500]">{metrics?.totalRewardsCompleted || rewardSessions.filter(s => s.status === 'completed').length || 0}</div>
-            <span className="text-[10px] text-zinc-500">Ad sessions verified</span>
+            <div className="text-xl sm:text-2xl font-black text-[#B8F500]">{metrics?.totalRewardsCompleted || rewardSessions.filter(s => s.status === 'completed').length || 0}</div>
+            <span className="text-[10px] text-zinc-500 block truncate">Ad sessions verified</span>
           </div>
 
-          <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 space-y-1">
+          <div className="bg-zinc-900 p-3 sm:p-4 rounded-2xl border border-zinc-800 space-y-1">
             <span className="text-[10px] uppercase font-bold text-zinc-400">Rewards Issued</span>
-            <div className="text-2xl font-black text-white">₦{(metrics?.totalRewardsIssued || 0).toFixed(2)}</div>
-            <span className="text-[10px] text-zinc-500">Credited into ledger</span>
+            <div className="text-xl sm:text-2xl font-black text-white">₦{(metrics?.totalRewardsIssued || 0).toFixed(2)}</div>
+            <span className="text-[10px] text-zinc-500 block truncate">Credited into ledger</span>
           </div>
 
-          <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 space-y-1">
+          <div className="bg-zinc-900 p-3 sm:p-4 rounded-2xl border border-zinc-800 space-y-1">
             <span className="text-[10px] uppercase font-bold text-zinc-400">Total Withdrawn</span>
-            <div className="text-2xl font-black text-white">₦{(metrics?.totalWithdrawn || 0).toFixed(2)}</div>
-            <span className="text-[10px] text-zinc-500">Settled to banks</span>
+            <div className="text-xl sm:text-2xl font-black text-white">₦{(metrics?.totalWithdrawn || 0).toFixed(2)}</div>
+            <span className="text-[10px] text-zinc-500 block truncate">Settled to banks</span>
           </div>
 
-          <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 space-y-1 col-span-2 lg:col-span-1">
+          <div className="bg-zinc-900 p-3 sm:p-4 rounded-2xl border border-zinc-800 space-y-1 col-span-2 lg:col-span-1">
             <span className="text-[10px] uppercase font-bold text-purple-400">Pending Withdrawals</span>
-            <div className="text-2xl font-black text-[#B8F500]">
+            <div className="text-xl sm:text-2xl font-black text-[#B8F500]">
               {withdrawals.filter((w) => w.status === 'pending' || w.status === 'processing').length}
             </div>
-            <span className="text-[10px] text-zinc-400">
+            <span className="text-[10px] text-zinc-400 block truncate">
               ₦{withdrawals.filter((w) => w.status === 'pending' || w.status === 'processing').reduce((sum, w) => sum + w.amount, 0).toFixed(2)} in queue
             </span>
           </div>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-2 border-b border-zinc-800 pb-2 overflow-x-auto">
+        <div className="flex items-center gap-2 border-b border-zinc-800 pb-2 overflow-x-auto max-w-full scrollbar-none py-1">
           <button
             onClick={() => setActiveTab('withdrawals')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'withdrawals'
-                ? 'bg-[#6C2BD9] text-white'
-                : 'bg-zinc-900 text-zinc-400 hover:text-white'
+                ? 'bg-[#6C2BD9] text-white shadow-md'
+                : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
             }`}
           >
             <Wallet className="w-3.5 h-3.5" />
@@ -464,10 +464,10 @@ export const AdminDashboardPage: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('rewards')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'rewards'
-                ? 'bg-[#6C2BD9] text-white'
-                : 'bg-zinc-900 text-zinc-400 hover:text-white'
+                ? 'bg-[#6C2BD9] text-white shadow-md'
+                : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
             }`}
           >
             <Gift className="w-3.5 h-3.5 text-[#B8F500]" />
@@ -476,10 +476,10 @@ export const AdminDashboardPage: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('users')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'users'
-                ? 'bg-[#6C2BD9] text-white'
-                : 'bg-zinc-900 text-zinc-400 hover:text-white'
+                ? 'bg-[#6C2BD9] text-white shadow-md'
+                : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
@@ -488,10 +488,10 @@ export const AdminDashboardPage: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('security')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'security'
-                ? 'bg-[#6C2BD9] text-white'
-                : 'bg-zinc-900 text-zinc-400 hover:text-white'
+                ? 'bg-[#6C2BD9] text-white shadow-md'
+                : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
             }`}
           >
             <AlertTriangle className="w-3.5 h-3.5" />
@@ -500,10 +500,10 @@ export const AdminDashboardPage: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('referrals')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'referrals'
-                ? 'bg-[#6C2BD9] text-white'
-                : 'bg-zinc-900 text-zinc-400 hover:text-white'
+                ? 'bg-[#6C2BD9] text-white shadow-md'
+                : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
             }`}
           >
             <Users className="w-3.5 h-3.5 text-[#B8F500]" />
@@ -512,10 +512,10 @@ export const AdminDashboardPage: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('audit_logs')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'audit_logs'
-                ? 'bg-[#6C2BD9] text-white'
-                : 'bg-zinc-900 text-zinc-400 hover:text-white'
+                ? 'bg-[#6C2BD9] text-white shadow-md'
+                : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
             }`}
           >
             <ShieldCheck className="w-3.5 h-3.5 text-[#B8F500]" />
@@ -524,10 +524,10 @@ export const AdminDashboardPage: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('settings')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'settings'
-                ? 'bg-[#6C2BD9] text-white'
-                : 'bg-zinc-900 text-zinc-400 hover:text-white'
+                ? 'bg-[#6C2BD9] text-white shadow-md'
+                : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
             }`}
           >
             <Sliders className="w-3.5 h-3.5" />
@@ -537,8 +537,8 @@ export const AdminDashboardPage: React.FC = () => {
 
         {/* Tab 1: Withdrawals Queue */}
         {activeTab === 'withdrawals' && (
-          <div className="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="bg-zinc-900 rounded-3xl p-4 sm:p-6 border border-zinc-800 space-y-4 max-w-full overflow-hidden">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-extrabold text-white">Withdrawal Requests Queue</h3>
@@ -552,26 +552,26 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
 
               {/* Status Filter Buttons & Search */}
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 max-w-full">
+                <div className="relative w-full sm:w-auto">
                   <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
                   <input
                     type="text"
                     placeholder="Search ref or email..."
                     value={withdrawalSearch}
                     onChange={(e) => setWithdrawalSearch(e.target.value)}
-                    className="pl-8 pr-3 py-1.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white placeholder-zinc-500 focus:outline-hidden focus:border-[#B8F500]"
+                    className="w-full sm:w-48 pl-8 pr-3 py-1.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white placeholder-zinc-500 focus:outline-hidden focus:border-[#B8F500]"
                   />
                 </div>
 
-                <div className="flex items-center bg-zinc-950 p-1 rounded-xl border border-zinc-800">
+                <div className="flex items-center gap-1 bg-zinc-950 p-1 rounded-xl border border-zinc-800 overflow-x-auto max-w-full scrollbar-none shrink-0">
                   {['all', 'pending', 'processing', 'completed', 'rejected', 'failed'].map((st) => (
                     <button
                       key={st}
                       onClick={() => setWithdrawalFilter(st)}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold capitalize transition-colors cursor-pointer ${
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold capitalize transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                         withdrawalFilter === st
-                          ? 'bg-[#6C2BD9] text-white'
+                          ? 'bg-[#6C2BD9] text-white shadow-xs'
                           : 'text-zinc-400 hover:text-white'
                       }`}
                     >
