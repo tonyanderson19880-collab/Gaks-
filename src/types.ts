@@ -125,9 +125,12 @@ export interface Withdrawal {
     wallet_id?: string;
     wallet_provider?: string;
     wallet_account_id?: string;
+    paystack_recipient_code?: string;
+    paystack_reference?: string;
+    [key: string]: any;
   };
   reference: string;
-  status: 'pending' | 'processing' | 'completed' | 'rejected' | 'failed' | 'cancelled';
+  status: 'pending' | 'processing' | 'approved' | 'completed' | 'paid' | 'rejected' | 'failed' | 'cancelled';
   admin_notes?: string;
   admin_note?: string;
   rejection_reason?: string;

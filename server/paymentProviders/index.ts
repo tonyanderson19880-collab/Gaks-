@@ -6,17 +6,23 @@ export * from './PaymentProvider';
 export * from './DemoPaymentProvider';
 export * from './RealPaymentProvider';
 
+export function isPaystackConfigured(): boolean {
+  return Boolean(process.env.PAYSTACK_SECRET_KEY);
+}
+
 export function getPaymentProvider(providerName?: string): PaymentProvider {
-  const isProductionKeyConfigured = Boolean(
-    process.env.PAYSTACK_SECRET_KEY || process.env.FLUTTERWAVE_SECRET_KEY
-  );
+  const isKeyConfigured = isPaystackConfigured();
+
+  if (providerName?.toLowerCase().includes('demo')) {
+    return demoPaymentProvider;
+  }
 
   if (providerName?.toLowerCase().includes('real') || providerName?.toLowerCase().includes('paystack')) {
     return realPaymentProvider;
   }
 
-  if (!isProductionKeyConfigured) {
-    return demoPaymentProvider;
+  if (isKeyConfigured) {
+    return realPaymentProvider;
   }
 
   return demoPaymentProvider;

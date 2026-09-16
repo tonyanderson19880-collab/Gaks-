@@ -51,6 +51,8 @@ export const WithdrawPage: React.FC<WithdrawPageProps> = ({ onNavigate }) => {
   const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
   const [preparedAccountDetails, setPreparedAccountDetails] = useState<Record<string, string>>({});
   const [numericAmountToSubmit, setNumericAmountToSubmit] = useState<number>(0);
+  const [paystackConfigured, setPaystackConfigured] = useState<boolean>(false);
+  const [paystackModeText, setPaystackModeText] = useState<string>('TEST MODE — NO REAL PAYMENT');
 
   // Auto-populate from user profile if configured
   useEffect(() => {
@@ -74,6 +76,14 @@ export const WithdrawPage: React.FC<WithdrawPageProps> = ({ onNavigate }) => {
     try {
       const statsRes = await api.getPublicStats();
       if (statsRes.minimumWithdrawal) setMinWithdrawal(statsRes.minimumWithdrawal);
+
+      try {
+        const psStatus = await api.getPaystackStatus();
+        setPaystackConfigured(Boolean(psStatus?.configured));
+        if (psStatus?.modeText) setPaystackModeText(psStatus.modeText);
+      } catch {
+        setPaystackConfigured(false);
+      }
 
       if (user) {
         const withRes = await api.getWithdrawals();
@@ -276,15 +286,20 @@ export const WithdrawPage: React.FC<WithdrawPageProps> = ({ onNavigate }) => {
 
           <div className="hidden sm:flex items-center gap-2 bg-[#B8F500]/20 border border-[#B8F500] px-3 py-1.5 rounded-full text-xs font-bold text-[#0F172A]">
             <Sparkles className="w-3.5 h-3.5 text-[#6C2BD9]" />
-            <span>DEMO TEST MODE</span>
+            <span>{paystackConfigured ? 'LIVE PAYSTACK GATEWAY' : 'DEMO TEST MODE'}</span>
           </div>
         </div>
 
-        {/* Demo Notice Banner */}
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-          <Info className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
-          <div className="text-xs text-amber-900 leading-relaxed">
-            <strong className="font-bold">DEMO ENVIRONMENT NOTICE:</strong> This application operates in test mode. Withdrawal requests simulate the Nigerian banking clearing queue without moving real fiat currency. All ledger debits and reversals are fully tracked in your balance.
+        {/* Notice Banner */}
+        <div className={`rounded-2xl p-4 flex items-start gap-3 border ${paystackConfigured ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+          <Info className={`w-5 h-5 shrink-0 mt-0.5 ${paystackConfigured ? 'text-emerald-700' : 'text-amber-700'}`} />
+          <div className={`text-xs leading-relaxed ${paystackConfigured ? 'text-emerald-900' : 'text-amber-900'}`}>
+            <strong className="font-bold">
+              {paystackConfigured ? 'LIVE PAYSTACK PAYOUTS ACTIVE:' : 'DEMO ENVIRONMENT NOTICE:'}
+            </strong>{' '}
+            {paystackConfigured
+              ? 'Withdrawals are processed directly via Paystack Transfers to verified Nigerian bank accounts upon admin authorization.'
+              : 'This application operates in test mode. Withdrawal requests simulate the Nigerian banking clearing queue without moving real fiat currency. All ledger debits and reversals are fully tracked in your balance.'}
           </div>
         </div>
 
@@ -302,9 +317,9 @@ export const WithdrawPage: React.FC<WithdrawPageProps> = ({ onNavigate }) => {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 bg-purple-900/50 border border-purple-400/30 px-3.5 py-2 rounded-2xl text-xs font-semibold text-purple-100">
-            <ShieldCheck className="w-4 h-4 text-[#B8F500]" />
-            <span>TEST MODE — Simulated Clearing</span>
+          <div className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-semibold ${paystackConfigured ? 'bg-emerald-950/60 border border-emerald-400/40 text-emerald-100' : 'bg-purple-900/50 border border-purple-400/30 text-purple-100'}`}>
+            <ShieldCheck className={`w-4 h-4 ${paystackConfigured ? 'text-emerald-400' : 'text-[#B8F500]'}`} />
+            <span>{paystackConfigured ? 'LIVE PAYSTACK PAYOUTS' : 'TEST MODE — NO REAL PAYMENT'}</span>
           </div>
         </div>
 

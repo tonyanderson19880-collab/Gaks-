@@ -1169,7 +1169,8 @@ class DatabaseManager {
     const wallet = this.getWallet(w.user_id);
     const ledger = this.db.ledger_entries.find((l) => l.reference === w.reference);
 
-    if (status === 'completed') {
+    if (status === 'completed' || status === 'paid') {
+      w.status = status;
       w.processed_at = new Date().toISOString();
       if (!w.provider_reference) {
         w.provider_reference = `DEMO-PAY-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
@@ -1178,10 +1179,13 @@ class DatabaseManager {
       wallet.total_withdrawn = Math.round((wallet.total_withdrawn + w.amount) * 100) / 100;
       wallet.updated_at = new Date().toISOString();
 
+      const isRealPay = Boolean(process.env.PAYSTACK_SECRET_KEY);
       this.addNotification({
         user_id: w.user_id,
-        title: 'Withdrawal Completed [DEMO]',
-        message: `Your withdrawal of ₦${w.amount.toFixed(2)} (Ref: ${w.reference}) was confirmed! Demo Provider Ref: ${w.provider_reference}`,
+        title: isRealPay ? 'Payout Settled Successfully' : 'Withdrawal Completed [DEMO]',
+        message: isRealPay
+          ? `Your withdrawal of ₦${w.amount.toFixed(2)} (Ref: ${w.reference}) was successfully paid to your bank account! Provider Ref: ${w.provider_reference}`
+          : `Your withdrawal of ₦${w.amount.toFixed(2)} (Ref: ${w.reference}) was confirmed! Demo Provider Ref: ${w.provider_reference}`,
         type: 'withdrawal',
       });
     } else if (status === 'rejected' || status === 'failed' || status === 'cancelled') {

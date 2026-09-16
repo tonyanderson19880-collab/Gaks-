@@ -374,6 +374,24 @@ export const api = {
     });
   },
 
+  // Paystack Bank & Account Resolution
+  getPaystackStatus: () =>
+    request<{ configured: boolean; provider: string; isDemo: boolean; modeText: string }>('/api/paystack/status'),
+
+  getPaystackBanks: () =>
+    request<{ success: boolean; banks: { id: number; name: string; code: string; slug: string }[]; isDemo?: boolean }>(
+      '/api/paystack/banks'
+    ),
+
+  resolvePaystackAccount: (accountNumber: string, bankCode: string) =>
+    request<{ success: boolean; account_name?: string; account_number?: string; bank_code?: string; isDemo?: boolean }>(
+      '/api/paystack/resolve-account',
+      {
+        method: 'POST',
+        body: JSON.stringify({ accountNumber, bankCode }),
+      }
+    ),
+
   // Withdrawals
   requestWithdrawal: async (body: { amount: number; paymentMethod: string; accountDetails: any }) => {
     if (isSupabaseConfigured()) {

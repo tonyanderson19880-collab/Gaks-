@@ -10,13 +10,23 @@ import {
   AuthenticatedRequest,
 } from './server/auth.js';
 import { getProvider } from './server/adProviders.js';
-import { getPaymentProvider } from './server/paymentProviders/index.js';
+import {
+  getPaymentProvider,
+  isPaystackConfigured,
+  realPaymentProvider,
+} from './server/paymentProviders/index.js';
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(
+    express.json({
+      verify: (req: any, _res, buf) => {
+        req.rawBody = buf;
+      },
+    })
+  );
 
   // ----------------------------------------------------
   // Health & Public Stats
@@ -759,6 +769,89 @@ async function startServer() {
     }
   });
 
+  // ----------------------------------------------------
+  // Paystack & Banking Payout Gateway Routes
+  // ----------------------------------------------------
+  app.get('/api/paystack/status', (req, res) => {
+    const configured = isPaystackConfigured();
+    const provider = getPaymentProvider();
+    res.json({
+      configured,
+      provider: provider.name,
+      isDemo: provider.isDemo,
+      modeText: configured ? 'LIVE PAYSTACK PAYOUTS' : 'TEST MODE — NO REAL PAYMENT',
+    });
+  });
+
+  let cachedBanks: any[] = [];
+  let cachedBanksTime = 0;
+
+  app.get('/api/paystack/banks', async (req, res) => {
+    try {
+      if (cachedBanks.length > 0 && Date.now() - cachedBanksTime < 3600000) {
+        return res.json({ success: true, banks: cachedBanks });
+      }
+
+      if (isPaystackConfigured()) {
+        const banks = await realPaymentProvider.getBanks();
+        cachedBanks = banks;
+        cachedBanksTime = Date.now();
+        return res.json({ success: true, banks });
+      }
+
+      // Safe fallback list for Demo / Test mode when secret key is not set
+      const demoBanks = [
+        { id: 1, name: 'Guaranty Trust Bank (GTBank)', code: '058', slug: 'gtbank' },
+        { id: 2, name: 'Access Bank', code: '044', slug: 'access-bank' },
+        { id: 3, name: 'Zenith Bank', code: '057', slug: 'zenith-bank' },
+        { id: 4, name: 'OPay', code: '999992', slug: 'opay' },
+        { id: 5, name: 'Kuda Bank', code: '50211', slug: 'kuda-bank' },
+        { id: 6, name: 'PalmPay', code: '999991', slug: 'palmpay' },
+        { id: 7, name: 'Moniepoint Microfinance Bank', code: '50515', slug: 'moniepoint' },
+        { id: 8, name: 'First Bank of Nigeria', code: '011', slug: 'first-bank-of-nigeria' },
+        { id: 9, name: 'United Bank for Africa (UBA)', code: '033', slug: 'united-bank-for-africa' },
+        { id: 10, name: 'Fidelity Bank', code: '070', slug: 'fidelity-bank' },
+      ];
+      return res.json({ success: true, banks: demoBanks, isDemo: true });
+    } catch (err: any) {
+      console.error('Error fetching bank list:', err);
+      return res.status(500).json({ error: err.message || 'Failed to fetch Nigerian bank list.' });
+    }
+  });
+
+  app.post('/api/paystack/resolve-account', requireUserAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { accountNumber, bankCode } = req.body;
+      if (!accountNumber || !bankCode) {
+        return res.status(400).json({ error: 'Account number and bank code are required.' });
+      }
+
+      if (!isPaystackConfigured()) {
+        return res.json({
+          success: true,
+          account_name: 'TEST DEMO ACCOUNT HOLDER',
+          account_number: accountNumber,
+          bank_code: bankCode,
+          isDemo: true,
+        });
+      }
+
+      const result = await realPaymentProvider.resolveAccount(accountNumber, bankCode);
+      if (!result.success) {
+        return res.status(400).json({ error: result.message || 'Paystack account resolution failed.' });
+      }
+
+      return res.json({
+        success: true,
+        account_name: result.accountName,
+        account_number: result.accountNumber,
+        bank_code: result.bankCode,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || 'Server error resolving bank account.' });
+    }
+  });
+
   app.get('/api/admin/fraud-events', requireAdminAuth, (req: AuthenticatedRequest, res) => {
     const fraudEvents = dbManager.getFraudEvents();
     res.json({ fraudEvents });
@@ -769,17 +862,88 @@ async function startServer() {
     res.json({ withdrawals });
   });
 
-  app.post('/api/admin/withdrawals/:id/review', requireAdminAuth, (req: AuthenticatedRequest, res) => {
-    const { status, adminNotes, rejectionReason, providerReference } = req.body;
-    const admin = req.admin!;
-    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+  app.post('/api/admin/withdrawals/:id/review', requireAdminAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { status, adminNotes, rejectionReason, providerReference } = req.body;
+      const admin = req.admin!;
+      const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
 
-    const note = rejectionReason || adminNotes || (status === 'completed' ? 'Payout verified & settled in demo sandbox' : 'Status updated by admin');
-    const result = dbManager.updateWithdrawalStatus(req.params.id, status, note, admin.id, ip, providerReference);
-    if (!result.success) {
-      return res.status(400).json({ error: result.message });
+      const withdrawal = dbManager.getWithdrawals().find((w) => w.id === req.params.id);
+      if (!withdrawal) {
+        return res.status(404).json({ error: 'Withdrawal not found.' });
+      }
+
+      // 1. Terminal State Check: Prevent modifying already completed/failed withdrawals
+      const terminalStates = ['completed', 'paid', 'rejected', 'failed', 'cancelled'];
+      if (terminalStates.includes(withdrawal.status)) {
+        return res.status(400).json({
+          error: `Withdrawal has already reached terminal status (${withdrawal.status.toUpperCase()}) and cannot be modified.`,
+        });
+      }
+
+      // 2. Rejection & Refund Flow
+      if (status === 'rejected' || status === 'failed') {
+        const note = rejectionReason || adminNotes || 'Admin rejected request';
+        const result = dbManager.updateWithdrawalStatus(req.params.id, status, note, admin.id, ip, providerReference);
+        return res.json({ success: true, withdrawal: result.withdrawal });
+      }
+
+      // 3. Approval Flow (Real Paystack Transfer vs Demo Mode)
+      if (status === 'approved' || status === 'processing' || status === 'completed' || status === 'paid') {
+        // Double-Payout & Idempotency Guard
+        if (withdrawal.provider_reference || withdrawal.status === 'processing') {
+          return res.status(400).json({
+            error: `Transfer has already been initiated for this withdrawal (Ref: ${withdrawal.provider_reference || withdrawal.reference}). Cannot initiate duplicate transfer.`,
+          });
+        }
+
+        if (isPaystackConfigured()) {
+          // Real Paystack Payout Initiation
+          const payResult = await realPaymentProvider.createPayment({
+            withdrawalId: withdrawal.id,
+            amount: withdrawal.amount,
+            currency: withdrawal.currency || 'NGN',
+            paymentMethod: withdrawal.payment_method,
+            accountDetails: withdrawal.account_details || {},
+            reference: withdrawal.reference,
+          });
+
+          if (!payResult.success) {
+            return res.status(400).json({
+              error: payResult.message || 'Paystack transfer request was rejected.',
+              details: payResult.rawResponse,
+            });
+          }
+
+          const targetStatus = payResult.status === 'completed' ? 'paid' : 'processing';
+          const note = `[PAYSTACK TRANSFER] Initiated via Paystack (${payResult.providerReference})`;
+          const result = dbManager.updateWithdrawalStatus(
+            withdrawal.id,
+            targetStatus,
+            note,
+            admin.id,
+            ip,
+            payResult.providerReference
+          );
+
+          return res.json({
+            success: true,
+            paystackResult: payResult,
+            withdrawal: result.withdrawal,
+          });
+        } else {
+          // Demo Provider Sandbox Approval
+          const note = adminNotes || (status === 'completed' ? 'Payout verified & settled in demo sandbox' : 'Status updated by admin');
+          const result = dbManager.updateWithdrawalStatus(req.params.id, status, note, admin.id, ip, providerReference);
+          return res.json({ success: true, withdrawal: result.withdrawal });
+        }
+      }
+
+      return res.status(400).json({ error: 'Invalid withdrawal status transition requested.' });
+    } catch (err: any) {
+      console.error('Error reviewing withdrawal:', err);
+      return res.status(500).json({ error: err.message || 'Server error reviewing withdrawal.' });
     }
-    res.json({ success: true, withdrawal: result.withdrawal });
   });
 
   app.post('/api/admin/withdrawals/:id/simulate-demo', requireAdminAuth, async (req: AuthenticatedRequest, res) => {
@@ -791,7 +955,6 @@ async function startServer() {
       return res.status(404).json({ error: 'Withdrawal not found.' });
     }
 
-    // Use DemoPaymentProvider to simulate the settlement gateway
     const { demoPaymentProvider } = await import('./server/paymentProviders/DemoPaymentProvider');
     const payResult = await demoPaymentProvider.createPayment({
       withdrawalId: withdrawal.id,
@@ -821,30 +984,45 @@ async function startServer() {
   });
 
   /**
-   * Secure Webhook Handler for Payout Notifications (Paystack / Flutterwave / Demo Webhook)
-   * Ensures signature validation, idempotency, and atomic state transitions.
+   * Official Paystack Webhook Handler
+   * Verifies x-paystack-signature HMAC SHA512 against PAYSTACK_SECRET_KEY over rawBody.
+   * Handles transfer.success and transfer.failed event callbacks idempotently.
    */
-  app.post('/api/webhooks/payout', async (req, res) => {
+  app.post('/api/webhooks/paystack', async (req: any, res) => {
     try {
-      const payload = req.body;
-      const ref = payload?.data?.reference || payload?.reference || payload?.provider_reference;
+      const signature = req.headers['x-paystack-signature'] as string;
+      const rawBody = req.rawBody || Buffer.from(JSON.stringify(req.body));
 
-      if (!ref) {
-        return res.status(400).json({ error: 'Missing payment reference in webhook payload.' });
+      if (isPaystackConfigured()) {
+        const isValid = realPaymentProvider.verifyWebhookSignature(rawBody, signature);
+        if (!isValid) {
+          console.warn('Rejected Paystack Webhook: Invalid HMAC SHA512 signature.');
+          return res.status(401).json({ error: 'Unauthorized: Invalid Paystack signature.' });
+        }
       }
 
-      const provider = getPaymentProvider();
-      const callbackResult = await provider.processCallback(payload);
+      const payload = req.body;
+      const data = payload?.data || payload;
+      const ref = data?.reference || payload?.reference;
+
+      if (!ref) {
+        return res.status(400).json({ error: 'Missing payment reference in Paystack webhook payload.' });
+      }
+
+      const callbackResult = await realPaymentProvider.processCallback(payload);
 
       const allWithdrawals = dbManager.getWithdrawals();
       const targetWithdrawal = allWithdrawals.find(
-        (w) => w.reference === callbackResult.reference || w.provider_reference === callbackResult.providerReference
+        (w) =>
+          w.reference?.toLowerCase() === callbackResult.reference?.toLowerCase() ||
+          w.provider_reference === callbackResult.providerReference ||
+          (w.account_details && w.account_details.paystack_reference === callbackResult.reference)
       );
 
       if (!targetWithdrawal) {
         return res.status(200).json({
           handled: true,
-          message: 'Webhook received successfully. Reference not found in current store.',
+          message: 'Webhook received successfully. Target reference not found.',
         });
       }
 
@@ -857,11 +1035,12 @@ async function startServer() {
         });
       }
 
+      const nextStatus = callbackResult.newStatus === 'completed' ? 'paid' : callbackResult.newStatus;
       const updateRes = dbManager.updateWithdrawalStatus(
         targetWithdrawal.id,
-        callbackResult.newStatus,
-        callbackResult.failureReason || `Processed via webhook callback (${callbackResult.providerReference})`,
-        'SYSTEM_WEBHOOK',
+        nextStatus,
+        callbackResult.failureReason || `Settled via Paystack Webhook (${callbackResult.providerReference})`,
+        'PAYSTACK_WEBHOOK',
         (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress,
         callbackResult.providerReference
       );
@@ -872,9 +1051,14 @@ async function startServer() {
         withdrawal: updateRes.withdrawal,
       });
     } catch (err: any) {
-      console.error('Error handling payout webhook:', err);
-      return res.status(500).json({ error: 'Internal server error processing payout webhook.' });
+      console.error('Error handling Paystack webhook:', err);
+      return res.status(500).json({ error: 'Internal server error processing Paystack webhook.' });
     }
+  });
+
+  app.post('/api/webhooks/payout', async (req: any, res) => {
+    // Alias to /api/webhooks/paystack
+    return app._router.handle(req, res, () => {});
   });
 
   app.get('/api/admin/referrals', requireAdminAuth, (req: AuthenticatedRequest, res) => {
