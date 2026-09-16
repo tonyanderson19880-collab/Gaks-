@@ -226,6 +226,16 @@ export const api = {
 
   // Rewards & Sessions
   getOpportunities: async (): Promise<{ opportunities: RewardOpportunity[] }> => {
+    if (isSupabaseConfigured()) {
+      try {
+        const opps = await supabaseDb.getRewardOpportunities();
+        if (opps && opps.length > 0) {
+          return { opportunities: opps };
+        }
+      } catch (err) {
+        console.warn('Notice: loading Supabase reward opportunities, falling back:', err);
+      }
+    }
     try {
       const res = await request<{ opportunities: RewardOpportunity[] }>('/api/rewards/opportunities');
       return res;
