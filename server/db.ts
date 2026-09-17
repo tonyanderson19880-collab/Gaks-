@@ -1022,7 +1022,94 @@ class DatabaseManager {
   }
 
   findRewardSession(sessionId: string): RewardSession | undefined {
-    return this.db.reward_sessions.find((s) => s.id === sessionId);
+    return this.db.reward_sessions.find((s) => s.id === sessionId || s.provider_session_id === sessionId);
+  }
+
+  verifyRewardSession(params: {
+    sessionId: string;
+    userId: string;
+    idempotencyKey?: string;
+  }): {
+    success: boolean;
+    pointsEarned: number;
+    newBalance: number;
+    transactionReference: string;
+    message?: string;
+  } {
+    let session = this.findRewardSession(params.sessionId);
+
+    if (!session) {
+      throw new Error('Reward session not found or invalid session ID.');
+    }
+
+    if (session.user_id !== params.userId) {
+      this.logFraudEvent(params.userId, 80, 'unauthorized_session_claim_attempt', { sessionId: params.sessionId });
+      throw new Error('Unauthorized: Reward session does not belong to this account.');
+    }
+
+    if (session.claimed) {
+      const wallet = this.getWallet(params.userId);
+      return {
+        success: true,
+        pointsEarned: session.expected_amount || 10,
+        newBalance: wallet.available_balance,
+        transactionReference: `SE-REW-${params.sessionId.slice(-8).toUpperCase()}`,
+        message: 'Reward already claimed.',
+      };
+    }
+
+    if (session.expires_at && new Date(session.expires_at).getTime() < Date.now()) {
+      throw new Error('Reward session has expired. Please start a new session.');
+    }
+
+    const opp = this.getOpportunityById(session.opportunity_id);
+    if (!opp) {
+      throw new Error('Associated reward opportunity not found.');
+    }
+
+    if (!opp.active || opp.status === 'inactive' || opp.status === 'archived') {
+      throw new Error('The associated reward opportunity is no longer active.');
+    }
+
+    const dailyCap = opp.daily_limit || opp.daily_cap || 10;
+    const userDailyCount = this.getUserDailyCompletedRewardCount(params.userId, session.opportunity_id);
+    if (userDailyCount >= dailyCap) {
+      throw new Error(`Daily completion limit (${dailyCap}/${dailyCap}) reached for this opportunity. Please try again tomorrow.`);
+    }
+
+    const authoritativeAmount = Number(opp.reward_amount || opp.reward_points || 10);
+    const reference = `SE-REW-${crypto.randomBytes(5).toString('hex').toUpperCase()}`;
+    const idempKey = params.idempotencyKey || `idemp_ses_${session.id}`;
+
+    const creditRes = this.creditReward({
+      userId: params.userId,
+      amount: authoritativeAmount,
+      reference,
+      description: `Verified rewarded view: ${opp.title || opp.name || 'Demo Task'}`,
+      idempotencyKey: idempKey,
+    });
+
+    session.claimed = true;
+    session.status = 'claimed';
+    session.claimed_at = new Date().toISOString();
+
+    this.db.reward_events.push({
+      id: `rev_${crypto.randomBytes(8).toString('hex')}`,
+      session_id: session.id,
+      event_type: 'session_claim',
+      metadata: { oppTitle: opp.title || opp.name, amount: authoritativeAmount, ref: reference },
+      created_at: new Date().toISOString(),
+    });
+
+    this.persist();
+
+    return {
+      success: true,
+      pointsEarned: authoritativeAmount,
+      newBalance: creditRes.wallet.available_balance,
+      transactionReference: reference,
+      message: 'Reward successfully verified and credited.',
+    };
   }
 
   getAllRewardSessions(): RewardSession[] {

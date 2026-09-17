@@ -77,6 +77,8 @@ const MainAppContent: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const [earnRefreshKey, setEarnRefreshKey] = useState<number>(0);
+
   const handleStartReward = (opportunity: RewardOpportunity) => {
     if (!user) {
       setCurrentTab('login');
@@ -86,7 +88,7 @@ const MainAppContent: React.FC = () => {
   };
 
   const handleRewardClaimed = () => {
-    // Wallet is refreshed in AuthContext
+    setEarnRefreshKey((prev) => prev + 1);
   };
 
   // Render current view
@@ -115,7 +117,7 @@ const MainAppContent: React.FC = () => {
           />
         );
       case 'earn':
-        return <EarnPage onStartOpportunity={handleStartReward} />;
+        return <EarnPage key={earnRefreshKey} onStartOpportunity={handleStartReward} />;
       case 'wallet':
         return <WalletPage onNavigate={handleNavigate} />;
       case 'withdraw':

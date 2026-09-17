@@ -244,6 +244,41 @@ export const api = {
     }
   },
 
+  getDailyRewardCounts: async (): Promise<{ counts: Record<string, number> }> => {
+    if (isSupabaseConfigured()) {
+      try {
+        const sb = getSupabaseClient();
+        const user = (await sb?.auth.getUser())?.data.user;
+        if (!user) return { counts: {} };
+
+        const startOfDay = new Date();
+        startOfDay.setUTCHours(0, 0, 0, 0);
+
+        const { data } = await sb
+          .from('reward_sessions')
+          .select('opportunity_id')
+          .eq('user_id', user.id)
+          .eq('claimed', true)
+          .gte('created_at', startOfDay.toISOString());
+
+        const counts: Record<string, number> = {};
+        if (data) {
+          for (const row of data) {
+            counts[row.opportunity_id] = (counts[row.opportunity_id] || 0) + 1;
+          }
+        }
+        return { counts };
+      } catch (err) {
+        console.warn('Notice loading Supabase daily counts:', err);
+      }
+    }
+    try {
+      return await request<{ counts: Record<string, number> }>('/api/rewards/daily-counts');
+    } catch {
+      return { counts: {} };
+    }
+  },
+
   startRewardSession: async (opportunityId: string) => {
     if (isSupabaseConfigured()) {
       const sb = getSupabaseClient();

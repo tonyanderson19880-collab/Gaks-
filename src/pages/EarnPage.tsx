@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Play, Video, ShieldCheck, Sparkles, Filter, CheckCircle2, Layers, Award } from 'lucide-react';
+import { Clock, Play, Video, ShieldCheck, Sparkles, CheckCircle2, Layers, Award, AlertCircle } from 'lucide-react';
 import { RewardOpportunity } from '../types';
 import { api } from '../api';
 
@@ -9,27 +9,33 @@ interface EarnPageProps {
 
 export const EarnPage: React.FC<EarnPageProps> = ({ onStartOpportunity }) => {
   const [opportunities, setOpportunities] = useState<RewardOpportunity[]>([]);
+  const [dailyCounts, setDailyCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
+  const fetchOppsAndCounts = async () => {
+    try {
+      setLoading(true);
+      const [oppsRes, countsRes] = await Promise.all([
+        api.getOpportunities(),
+        api.getDailyRewardCounts(),
+      ]);
+      setOpportunities(oppsRes.opportunities || []);
+      setDailyCounts(countsRes.counts || {});
+    } catch (err) {
+      console.error('Failed to load opportunities or daily counts:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchOpps = async () => {
-      try {
-        setLoading(true);
-        const res = await api.getOpportunities();
-        setOpportunities(res.opportunities || []);
-      } catch (err) {
-        console.error('Failed to load opportunities:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchOpps();
+    fetchOppsAndCounts();
   }, []);
 
   const categories = [
     { id: 'all', label: 'All Offers' },
-    { id: 'video', label: 'Videos' },
+    { id: 'video', label: 'Rewarded Ads' },
     { id: 'survey', label: 'Surveys' },
     { id: 'app_trial', label: 'App Trials' },
   ];
@@ -115,59 +121,74 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onStartOpportunity }) => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredOpps.map((opp) => (
-              <div
-                key={opp.id}
-                className="bg-white rounded-3xl p-6 border border-zinc-200 shadow-xs flex flex-col justify-between hover:shadow-lg hover:border-[#6C2BD9]/40 transition-all group relative overflow-hidden"
-              >
-                <div>
-                  {/* Top Header & Badges */}
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className="bg-purple-100 text-[#6C2BD9] text-[11px] font-extrabold px-3 py-1 rounded-lg flex items-center gap-1.5 uppercase tracking-wide">
-                      <Video className="w-3.5 h-3.5" />
-                      <span>{opp.provider || 'Demo Ad Network'}</span>
-                    </span>
+            {filteredOpps.map((opp) => {
+              const completedCount = dailyCounts[opp.id] || 0;
+              const limit = opp.daily_cap || opp.daily_limit || 10;
+              const isLimitReached = completedCount >= limit;
 
-                    {/* Reward Badge in NGN / Points */}
-                    <div className="bg-[#B8F500] text-[#0F172A] font-black text-xs px-3 py-1 rounded-full shadow-xs flex items-center gap-1">
-                      <Award className="w-3.5 h-3.5" />
-                      <span>+₦{(opp.reward_points || opp.reward_amount || 10).toFixed(2)}</span>
+              return (
+                <div
+                  key={opp.id}
+                  className={`bg-white rounded-3xl p-6 border shadow-xs flex flex-col justify-between transition-all group relative overflow-hidden ${
+                    isLimitReached ? 'border-zinc-200 opacity-80' : 'border-zinc-200 hover:shadow-lg hover:border-[#6C2BD9]/40'
+                  }`}
+                >
+                  <div>
+                    {/* Top Header & Badges */}
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className="bg-purple-100 text-[#6C2BD9] text-[11px] font-extrabold px-3 py-1 rounded-lg flex items-center gap-1.5 uppercase tracking-wide">
+                        <Video className="w-3.5 h-3.5" />
+                        <span>{opp.provider || 'Demo Ad Network'}</span>
+                      </span>
+
+                      {/* Reward Badge in NGN */}
+                      <div className="bg-[#B8F500] text-[#0F172A] font-black text-xs px-3 py-1 rounded-full shadow-xs flex items-center gap-1">
+                        <Award className="w-3.5 h-3.5" />
+                        <span>Reward: +₦{(opp.reward_points || opp.reward_amount || 10).toFixed(2)}</span>
+                      </div>
                     </div>
+
+                    {/* Title & Description */}
+                    <h3 className="text-base font-extrabold text-zinc-900 group-hover:text-[#6C2BD9] transition-colors line-clamp-2">
+                      {opp.title || opp.name}
+                    </h3>
+
+                    <p className="text-xs text-zinc-600 mt-2 leading-relaxed line-clamp-3">
+                      {opp.description}
+                    </p>
                   </div>
 
-                  {/* Title & Description */}
-                  <h3 className="text-base font-extrabold text-zinc-900 group-hover:text-[#6C2BD9] transition-colors line-clamp-2">
-                    {opp.title || opp.name}
-                  </h3>
+                  {/* Daily Progress & Action Area */}
+                  <div className="mt-6 pt-4 border-t border-zinc-100 space-y-3">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-zinc-500 font-medium flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-zinc-400" />
+                        {opp.estimated_seconds || opp.estimated_duration || 30}s video
+                      </span>
+                      <span className="font-bold text-zinc-700">
+                        Daily progress: <span className={isLimitReached ? 'text-amber-600' : 'text-[#6C2BD9]'}>{completedCount}/{limit}</span>
+                      </span>
+                    </div>
 
-                  <p className="text-xs text-zinc-600 mt-2 leading-relaxed line-clamp-3">
-                    {opp.description}
-                  </p>
-                </div>
-
-                {/* Opportunity Stats & Action */}
-                <div className="mt-6 pt-4 border-t border-zinc-100 flex items-center justify-between gap-3">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-[10px] uppercase font-bold text-zinc-400 flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-zinc-400" />
-                      {opp.estimated_seconds || opp.estimated_duration || 30}s completion
-                    </span>
-                    <span className="text-[11px] font-bold text-zinc-700">
-                      Limit: {opp.daily_cap || opp.daily_limit || 10}/day
-                    </span>
+                    {isLimitReached ? (
+                      <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 text-center text-xs font-semibold flex items-center justify-center gap-1.5">
+                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>Daily reward limit reached. Come back tomorrow.</span>
+                      </div>
+                    ) : (
+                      <button
+                        id={`btn-start-opportunity-${opp.id}`}
+                        onClick={() => onStartOpportunity(opp)}
+                        className="w-full py-2.5 rounded-xl bg-[#6C2BD9] hover:bg-[#5821B0] text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <span>Watch Ad</span>
+                        <Play className="w-3.5 h-3.5 fill-white" />
+                      </button>
+                    )}
                   </div>
-
-                  <button
-                    id={`btn-start-opportunity-${opp.id}`}
-                    onClick={() => onStartOpportunity(opp)}
-                    className="px-5 py-2.5 rounded-xl bg-[#6C2BD9] hover:bg-[#5821B0] text-white font-extrabold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
-                  >
-                    <span>Start</span>
-                    <Play className="w-3.5 h-3.5 fill-white" />
-                  </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

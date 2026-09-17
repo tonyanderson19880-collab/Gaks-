@@ -61,20 +61,22 @@ export interface RewardSession {
   opportunity_id: string;
   provider_session_id: string;
   provider_token: string;
-  status: 'initiated' | 'in_progress' | 'completed' | 'verified' | 'failed' | 'expired';
+  status: 'initiated' | 'in_progress' | 'completed' | 'verified' | 'claimed' | 'failed' | 'expired';
   ip_address?: string;
   user_agent?: string;
   started_at: string;
   completed_at?: string;
+  claimed_at?: string;
   verified_at?: string;
   expires_at: string;
   claimed: boolean;
+  expected_amount?: number;
 }
 
 export interface RewardEvent {
   id: string;
   session_id: string;
-  event_type: 'session_start' | 'ad_loaded' | 'ad_impression' | 'ad_progress' | 'ad_complete' | 'claim_attempt' | 'verified_success' | 'fraud_flagged';
+  event_type: 'session_start' | 'ad_loaded' | 'ad_impression' | 'ad_progress' | 'ad_complete' | 'claim_attempt' | 'verified_success' | 'session_claim' | 'fraud_flagged';
   metadata?: Record<string, any>;
   created_at: string;
 }

@@ -540,29 +540,23 @@ async function startServer() {
     try {
       const { opportunityId } = req.body;
       const userId = req.user!.id;
-      const sessionId = `sess_${crypto.randomBytes(8).toString('hex')}`;
-      const providerSessionId = `prov_${crypto.randomBytes(6).toString('hex')}`;
-      const token = crypto.randomBytes(16).toString('hex');
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+      const targetOppId = opportunityId || 'opp_demo_vid_01';
 
-      const opportunity = dbManager.getAllOpportunities().find(o => o.id === opportunityId) || {
-        id: opportunityId || 'opp-default',
-        name: 'Demo Rewarded Video',
-        description: 'Complete the verified demo interaction',
-        reward_amount: 10,
-        estimated_duration: 30,
-        status: 'active',
-        provider: 'Demo'
-      };
+      const result = dbManager.createRewardSession({
+        userId,
+        opportunityId: targetOppId,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
 
       res.json({
-        sessionId,
+        sessionId: result.session.id,
         userId,
-        providerSessionId,
-        opportunity,
-        token,
-        startedAt: new Date().toISOString(),
-        expiresAt,
+        providerSessionId: result.session.provider_session_id,
+        opportunity: result.opportunity,
+        token: result.token,
+        startedAt: result.session.started_at,
+        expiresAt: result.session.expires_at,
       });
     } catch (err: any) {
       res.status(400).json({ error: err.message || 'Failed to start reward session' });
@@ -572,56 +566,39 @@ async function startServer() {
   app.post('/api/rewards/sessions/:id/verify-and-claim', requireUserAuth, (req: AuthenticatedRequest, res) => {
     try {
       const sessionId = req.params.id;
-      const { opportunityId, amount, provider, title, idempotencyKey } = req.body;
       const userId = req.user!.id;
+      const { idempotencyKey } = req.body;
 
-      const opportunity = dbManager.getAllOpportunities().find(o => o.id === opportunityId) || {
-        reward_amount: amount || 10,
-        provider: provider || 'Demo',
-        name: title || 'Demo Rewarded Task'
-      };
-
-      const rewardAmount = Number(opportunity.reward_amount || amount || 10);
-      const reference = `SE-REW-${crypto.randomBytes(5).toString('hex').toUpperCase()}`;
-      const idempKey = idempotencyKey || `idemp_ses_${sessionId}`;
-
-      const creditRes = dbManager.creditReward({
+      const claimResult = dbManager.verifyRewardSession({
+        sessionId,
         userId,
-        amount: rewardAmount,
-        reference,
-        description: `Verified demo reward: ${opportunity.name || title || 'Task'}`,
-        idempotencyKey: idempKey,
-      });
-
-      if (!creditRes.success && creditRes.message?.includes('idempotent')) {
-        return res.json({
-          success: true,
-          message: 'Reward already claimed',
-          pointsEarned: rewardAmount,
-          newBalance: creditRes.wallet.available_balance,
-          transactionReference: reference,
-          providerTransactionId: reference,
-        });
-      }
-
-      // Record notification
-      dbManager.addNotification({
-        user_id: userId,
-        title: 'Reward Confirmed!',
-        message: `You earned +${rewardAmount} points for completing ${opportunity.name || title || 'Demo Task'}.`,
-        type: 'reward',
+        idempotencyKey,
       });
 
       res.json({
         success: true,
-        message: 'Reward confirmed!',
-        pointsEarned: rewardAmount,
-        newBalance: creditRes.wallet.available_balance,
-        transactionReference: reference,
-        providerTransactionId: reference,
+        message: claimResult.message || 'Reward confirmed!',
+        pointsEarned: claimResult.pointsEarned,
+        newBalance: claimResult.newBalance,
+        transactionReference: claimResult.transactionReference,
+        providerTransactionId: claimResult.transactionReference,
       });
     } catch (err: any) {
       res.status(400).json({ error: err.message || 'Failed to verify and claim reward' });
+    }
+  });
+
+  app.get('/api/rewards/daily-counts', requireUserAuth, (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const opps = dbManager.getOpportunities();
+      const counts: Record<string, number> = {};
+      for (const opp of opps) {
+        counts[opp.id] = dbManager.getUserDailyCompletedRewardCount(userId, opp.id);
+      }
+      res.json({ counts });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to fetch daily counts' });
     }
   });
 

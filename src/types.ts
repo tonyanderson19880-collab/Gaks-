@@ -61,22 +61,37 @@ export interface RewardOpportunity {
   updated_at?: string;
 }
 
-export type RewardSessionStatus = 'started' | 'pending' | 'completed' | 'expired' | 'failed' | 'rejected';
+export type RewardSessionStatus = 'started' | 'initiated' | 'in_progress' | 'pending' | 'completed' | 'verified' | 'claimed' | 'expired' | 'failed' | 'rejected';
 
 export interface RewardSession {
   id: string;
   user_id: string;
-  reward_opportunity_id: string;
+  opportunity_id: string;
+  reward_opportunity_id?: string;
   status: RewardSessionStatus;
   started_at: string;
   completed_at?: string;
+  claimed_at?: string;
   expires_at: string;
-  provider: string;
+  provider?: string;
   provider_session_id?: string;
-  reward_amount: number;
+  provider_token?: string;
+  reward_amount?: number;
+  expected_amount?: number;
+  claimed?: boolean;
+  ip_address?: string;
+  user_agent?: string;
   idempotency_key?: string;
   metadata?: any;
   created_at?: string;
+}
+
+export interface RewardEvent {
+  id: string;
+  session_id: string;
+  event_type: 'session_start' | 'ad_loaded' | 'ad_impression' | 'ad_progress' | 'ad_complete' | 'claim_attempt' | 'verified_success' | 'session_claim' | 'fraud_flagged';
+  metadata?: any;
+  created_at: string;
 }
 
 export interface FraudEvent {
