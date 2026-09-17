@@ -44,7 +44,7 @@ export const ReferralsPage: React.FC<ReferralsPageProps> = ({ onNavigate }) => {
       }
     };
     fetchReferralData();
-  }, [user]);
+  }, [user?.id]);
 
   const referralCode = profile?.referral_code || 'SE-DEMO1';
   const referralLink = `${window.location.origin}/signup?ref=${referralCode}`;

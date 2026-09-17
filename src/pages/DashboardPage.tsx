@@ -49,7 +49,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     };
 
     loadDashboardData();
-  }, [user]);
+  }, [user?.id]);
 
   if (!user) {
     return (

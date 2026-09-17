@@ -248,12 +248,38 @@ export const api = {
     if (isSupabaseConfigured()) {
       const sb = getSupabaseClient();
       const user = (await sb?.auth.getUser())?.data.user;
-      const opp = FALLBACK_OPPORTUNITIES.find((o) => o.id === opportunityId) || {
-        id: opportunityId,
-        provider: 'Verified Sponsor',
-        reward_points: 50,
-      };
+      
+      let opp: RewardOpportunity | undefined;
+      try {
+        const dbOpps = await supabaseDb.getRewardOpportunities();
+        opp = dbOpps.find((o) => o.id === opportunityId);
+      } catch (err) {
+        console.warn('Notice fetching Supabase opportunities for session:', err);
+      }
 
+      if (!opp) {
+        opp = FALLBACK_OPPORTUNITIES.find((o) => o.id === opportunityId) || {
+          id: opportunityId || 'opp_demo_vid_01',
+          name: 'Demo Rewarded Video',
+          title: 'Demo Rewarded Video',
+          description: 'Watch a 30-second sponsored brand campaign.',
+          category: 'video',
+          provider: 'Demo',
+          reward_points: 10,
+          reward_amount: 10,
+          estimated_seconds: 30,
+          estimated_duration: 30,
+          is_demo: true,
+          active: true,
+          status: 'active',
+          daily_cap: 10,
+          daily_limit: 10,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+      }
+
+      const rewardAmt = Number(opp.reward_amount || opp.reward_points || 10);
       const sessionToken = `sess_${Math.random().toString(36).substring(2)}${Date.now()}`;
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
@@ -264,8 +290,8 @@ export const api = {
             .insert({
               user_id: user.id,
               opportunity_id: opportunityId,
-              provider: opp.provider,
-              expected_amount: opp.reward_points,
+              provider: opp.provider || 'Demo',
+              expected_amount: rewardAmt,
               status: 'started',
               session_token: sessionToken,
               expires_at: expiresAt,
@@ -276,7 +302,7 @@ export const api = {
           return {
             sessionId: data?.id || `sess_${Date.now()}`,
             providerSessionId: `prov_${Date.now()}`,
-            opportunity: opp,
+            opportunity: { ...opp, reward_points: rewardAmt, reward_amount: rewardAmt },
             token: sessionToken,
             startedAt: new Date().toISOString(),
             expiresAt,
@@ -289,7 +315,7 @@ export const api = {
       return {
         sessionId: `sess_${Date.now()}`,
         providerSessionId: `prov_${Date.now()}`,
-        opportunity: opp,
+        opportunity: { ...opp, reward_points: rewardAmt, reward_amount: rewardAmt },
         token: sessionToken,
         startedAt: new Date().toISOString(),
         expiresAt,
@@ -331,29 +357,77 @@ export const api = {
   }> => {
     if (isSupabaseConfigured()) {
       try {
-        const opp =
-          FALLBACK_OPPORTUNITIES.find((o) => o.id === body.opportunityId) || {
-            id: body.opportunityId || 'opp-default',
-            provider: body.provider || 'Partner',
-            title: body.title || 'Engagement Reward',
-            reward_points: body.amount || 50,
-          };
+        const sb = getSupabaseClient();
+        let opp: RewardOpportunity | undefined;
+
+        // 1. First try fetching session record from Supabase to find exact opportunity_id and expected_amount
+        if (sb && sessionId) {
+          try {
+            const { data: sessionData } = await sb
+              .from('reward_sessions')
+              .select('*')
+              .eq('id', sessionId)
+              .maybeSingle();
+
+            if (sessionData?.opportunity_id) {
+              const dbOpps = await supabaseDb.getRewardOpportunities();
+              opp = dbOpps.find((o) => o.id === sessionData.opportunity_id);
+            }
+          } catch (err) {
+            console.warn('Notice checking Supabase session for verifyAndClaim:', err);
+          }
+        }
+
+        // 2. Fallback to lookup by body.opportunityId
+        if (!opp && body.opportunityId) {
+          const dbOpps = await supabaseDb.getRewardOpportunities();
+          opp = dbOpps.find((o) => o.id === body.opportunityId);
+        }
+
+        if (!opp) {
+          opp = FALLBACK_OPPORTUNITIES.find((o) => o.id === body.opportunityId) ||
+            FALLBACK_OPPORTUNITIES.find((o) => o.id === 'opp_demo_vid_01') || {
+              id: body.opportunityId || 'opp_demo_vid_01',
+              name: body.title || 'Demo Rewarded Video',
+              title: body.title || 'Demo Rewarded Video',
+              description: 'Watch a 30-second sponsored brand campaign.',
+              category: 'video',
+              provider: body.provider || 'Demo',
+              reward_points: body.amount || 10,
+              reward_amount: body.amount || 10,
+              estimated_seconds: 30,
+              estimated_duration: 30,
+              is_demo: true,
+              active: true,
+              status: 'active',
+              daily_cap: 10,
+              daily_limit: 10,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+        }
+
+        const authoritativeAmount = Number(
+          opp.reward_amount || opp.reward_points || body.amount || 10
+        );
+        const authoritativeTitle = opp.title || opp.name || body.title || 'Demo Rewarded Video';
+        const authoritativeProvider = opp.provider || body.provider || 'Demo';
 
         const result = await supabaseDb.creditReward(
           sessionId,
           opp.id,
-          body.amount || opp.reward_points,
-          body.provider || opp.provider,
-          body.title || (opp as any).title || 'Campaign Reward'
+          authoritativeAmount,
+          authoritativeProvider,
+          authoritativeTitle
         );
 
         return {
           success: true,
           message: result.message || 'Reward credited to wallet',
-          pointsEarned: result.pointsEarned || opp.reward_points,
-          newBalance: result.newBalance,
-          transactionReference: result.transactionReference,
-          providerTransactionId: result.transactionReference,
+          pointsEarned: authoritativeAmount,
+          newBalance: Number(result.newBalance ?? result.new_balance ?? 0),
+          transactionReference: result.transactionReference || result.transaction_reference,
+          providerTransactionId: result.transactionReference || result.transaction_reference,
         };
       } catch (err) {
         console.warn('Supabase creditReward RPC failed, falling back to Express API:', err);

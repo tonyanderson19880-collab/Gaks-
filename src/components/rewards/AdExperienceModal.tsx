@@ -85,14 +85,19 @@ export const AdExperienceModal: React.FC<AdExperienceModalProps> = ({
       setStep('verifying');
       const elapsedSeconds = (Date.now() - startTimeRef.current) / 1000;
 
+      const rewardAmt = Number(opportunity.reward_amount || opportunity.reward_points || 10);
       const res = await api.verifyAndClaimReward(sessionId, {
         token: sessionToken,
         elapsedSeconds,
+        opportunityId: opportunity.id,
+        provider: opportunity.provider,
+        title: opportunity.title || opportunity.name,
+        amount: rewardAmt,
       });
 
       if (res.success) {
         setClaimedData({
-          points: res.pointsEarned,
+          points: res.pointsEarned || rewardAmt,
           newBalance: res.newBalance,
           txRef: res.transactionReference,
           providerTxId: res.providerTransactionId,
@@ -232,7 +237,7 @@ export const AdExperienceModal: React.FC<AdExperienceModalProps> = ({
 
               <div className="bg-zinc-900/60 rounded-2xl p-4 border border-zinc-800/80 flex items-center justify-between text-xs">
                 <span className="text-zinc-400 font-medium">Guaranteed Reward:</span>
-                <span className="font-black text-[#B8F500] text-sm sm:text-base">+{opportunity.reward_points} Points</span>
+                <span className="font-black text-[#B8F500] text-sm sm:text-base">+₦{(opportunity.reward_amount || opportunity.reward_points || 10).toFixed(2)}</span>
               </div>
             </div>
           )}
@@ -260,7 +265,7 @@ export const AdExperienceModal: React.FC<AdExperienceModalProps> = ({
                   Confirmed Legitimate Completion
                 </span>
                 <h3 className="text-xl sm:text-2xl font-extrabold text-white">
-                  +{claimedData.points.toFixed(0)} Reward Points
+                  +₦{claimedData.points.toFixed(2)} Reward
                 </h3>
                 <p className="text-xs sm:text-sm text-zinc-300 mt-1">
                   Added to your confirmed available balance!

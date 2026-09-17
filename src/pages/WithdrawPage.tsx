@@ -100,7 +100,7 @@ export const WithdrawPage: React.FC<WithdrawPageProps> = ({ onNavigate }) => {
 
   useEffect(() => {
     fetchWithdrawalData();
-  }, [user]);
+  }, [user?.id]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);

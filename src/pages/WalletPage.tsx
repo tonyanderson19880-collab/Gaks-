@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   Wallet,
@@ -22,42 +22,72 @@ interface WalletPageProps {
 }
 
 export const WalletPage: React.FC<WalletPageProps> = ({ onNavigate }) => {
-  const { user, wallet, refreshUserData } = useAuth();
+  const { user, wallet } = useAuth();
   const [activeView, setActiveView] = useState<'transactions' | 'withdrawals'>('transactions');
   const [transactions, setTransactions] = useState<LedgerEntry[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [filterType, setFilterType] = useState<string>('all');
   const [copiedRef, setCopiedRef] = useState<string | null>(null);
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<WithdrawalRequest | null>(null);
 
+  const fetchingRef = useRef<boolean>(false);
+  const latestRequestIdRef = useRef<number>(0);
+
   useEffect(() => {
+    let isMounted = true;
+
     const fetchData = async () => {
-      if (!user) {
+      if (!user?.id) {
         setTransactions([]);
         setWithdrawals([]);
         setLoading(false);
         return;
       }
-      try {
+
+      // Deduplication guard: if a request is already running, avoid duplicate concurrent triggers
+      if (fetchingRef.current) return;
+      fetchingRef.current = true;
+
+      const requestId = ++latestRequestIdRef.current;
+
+      // Only show full-screen skeleton if we have no loaded data yet
+      if (transactions.length === 0 && withdrawals.length === 0) {
         setLoading(true);
-        await refreshUserData();
+      } else {
+        setIsRefreshing(true);
+      }
+
+      try {
         const [txRes, withRes] = await Promise.all([
           api.getTransactions(),
           api.getWithdrawals(),
         ]);
-        setTransactions(txRes.transactions || []);
-        setWithdrawals(withRes.withdrawals || []);
+
+        if (isMounted && requestId === latestRequestIdRef.current) {
+          setTransactions(txRes.transactions || []);
+          setWithdrawals(withRes.withdrawals || []);
+        }
       } catch (err: any) {
         if (!err?.message?.includes('Authentication')) {
           console.warn('Notice: Could not load wallet data:', err?.message || err);
         }
       } finally {
-        setLoading(false);
+        if (isMounted && requestId === latestRequestIdRef.current) {
+          setLoading(false);
+          setIsRefreshing(false);
+        }
+        fetchingRef.current = false;
       }
     };
+
     fetchData();
-  }, [user]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
 
   const handleCopyRef = (ref: string) => {
     navigator.clipboard.writeText(ref);
@@ -213,7 +243,14 @@ export const WalletPage: React.FC<WalletPageProps> = ({ onNavigate }) => {
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-zinc-200 shadow-xs space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-100 pb-4">
               <div>
-                <h2 className="text-lg font-extrabold text-zinc-900">Ledger Transactions</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-extrabold text-zinc-900">Ledger Transactions</h2>
+                  {isRefreshing && (
+                    <span className="text-[10px] font-bold text-[#6C2BD9] bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full animate-pulse">
+                      Updating...
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-zinc-500">Immutable double-entry log of rewards, withdrawals, and reversals</p>
               </div>
 
