@@ -28,6 +28,15 @@ async function startServer() {
     })
   );
 
+  app.use(
+    express.urlencoded({
+      extended: true,
+      verify: (req: any, _res, buf) => {
+        req.rawBody = buf;
+      },
+    })
+  );
+
   // ----------------------------------------------------
   // Health & Public Stats
   // ----------------------------------------------------
@@ -601,6 +610,141 @@ async function startServer() {
       res.status(400).json({ error: err.message || 'Failed to fetch daily counts' });
     }
   });
+
+  // ----------------------------------------------------
+  // ayeT-Studios Server-to-Server (S2S) Conversion Callback
+  // ----------------------------------------------------
+  const handleAyetCallback = (req: express.Request, res: express.Response) => {
+    try {
+      const params: Record<string, any> = { ...req.query, ...req.body };
+
+      const callbackType = String(params.callback_type || 'conversion').toLowerCase();
+      const transactionId = String(params.transaction_id || params.tid || params.tx_id || '').trim();
+      const externalIdentifier = String(
+        params.external_identifier || params.uid || params.user_id || params.subid || ''
+      ).trim();
+
+      const payoutUsd = params.payout_usd !== undefined && params.payout_usd !== '' ? Number(params.payout_usd) : undefined;
+      const currencyAmount = params.currency_amount !== undefined && params.currency_amount !== '' ? Number(params.currency_amount) : undefined;
+
+      const placementIdentifier = String(params.placement_identifier || params.placement_id || '');
+      const adslotId = String(params.adslot_id || '');
+      const offerId = String(params.offer_id || '');
+      const offerName = String(params.offer_name || '');
+      const eventName = String(params.event_name || '');
+      const taskUuid = String(params.task_uuid || '');
+
+      const isChargeback =
+        params.is_chargeback === '1' ||
+        params.is_chargeback === 1 ||
+        params.is_chargeback === 'true' ||
+        params.is_chargeback === true ||
+        callbackType === 'chargeback';
+
+      // Security Hash Verification
+      const ayetApiKey = (process.env.AYET_STUDIOS_API_KEY || process.env.AYET_API_KEY || '').trim();
+      const incomingHash =
+        (req.headers['x-ayetstudios-security-hash'] as string) ||
+        (req.headers['X-Ayetstudios-Security-Hash'] as string) ||
+        (params.signature as string) ||
+        '';
+
+      if (ayetApiKey) {
+        if (!incomingHash) {
+          dbManager.logFraudEvent(undefined, 85, 'ayeT Callback Rejected: Missing X-Ayetstudios-Security-Hash', {
+            params,
+            ip: req.ip,
+          });
+          return res.status(401).json({ error: 'Missing X-Ayetstudios-Security-Hash signature header' });
+        }
+
+        let isHashValid = false;
+        const rawBodyBuffer = (req as any).rawBody;
+
+        if (rawBodyBuffer && Buffer.isBuffer(rawBodyBuffer) && rawBodyBuffer.length > 0) {
+          const computedHash = crypto
+            .createHmac('sha256', ayetApiKey)
+            .update(rawBodyBuffer)
+            .digest('hex');
+          if (computedHash.toLowerCase() === incomingHash.toLowerCase()) {
+            isHashValid = true;
+          }
+        }
+
+        if (!isHashValid) {
+          // Fallback: verify against raw param string / JSON
+          const rawParamString = typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {});
+          const stringHash = crypto
+            .createHmac('sha256', ayetApiKey)
+            .update(rawParamString)
+            .digest('hex');
+          if (stringHash.toLowerCase() === incomingHash.toLowerCase()) {
+            isHashValid = true;
+          }
+        }
+
+        if (!isHashValid) {
+          dbManager.logFraudEvent(undefined, 90, 'ayeT Callback Rejected: Invalid HMAC Signature', {
+            params,
+            incomingHash,
+            ip: req.ip,
+          });
+          return res.status(401).json({ error: 'Invalid X-Ayetstudios-Security-Hash signature' });
+        }
+      } else {
+        if (incomingHash) {
+          return res.status(401).json({ error: 'AYET_STUDIOS_API_KEY environment variable is not configured on server' });
+        }
+        if (process.env.NODE_ENV === 'production') {
+          return res.status(401).json({ error: 'AYET_STUDIOS_API_KEY configuration required for production S2S postbacks' });
+        }
+      }
+
+      // Input Validation
+      if (!transactionId) {
+        return res.status(400).json({ error: 'Missing required parameter: transaction_id' });
+      }
+
+      if (!externalIdentifier) {
+        return res.status(400).json({ error: 'Missing required parameter: external_identifier' });
+      }
+
+      const customParams = {
+        custom_1: params.custom_1,
+        custom_2: params.custom_2,
+        custom_3: params.custom_3,
+        custom_4: params.custom_4,
+        custom_5: params.custom_5,
+      };
+
+      const result = dbManager.processAyetCallback({
+        transactionId,
+        externalIdentifier,
+        payoutUsd,
+        currencyAmount,
+        isChargeback,
+        offerId,
+        offerName,
+        eventName,
+        taskUuid,
+        placementIdentifier,
+        adslotId,
+        customParams,
+        ipAddress: req.ip,
+      });
+
+      return res.status(200).json(result);
+    } catch (err: any) {
+      const errMsg = err?.message || 'Error processing ayeT callback';
+      if (errMsg.includes('User not found')) {
+        return res.status(404).json({ error: errMsg });
+      }
+      return res.status(400).json({ error: errMsg });
+    }
+  };
+
+  app.post('/api/ayet/callback', handleAyetCallback);
+  app.get('/api/ayet/callback', handleAyetCallback);
 
   // ----------------------------------------------------
   // Notifications Endpoints
