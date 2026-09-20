@@ -643,11 +643,12 @@ async function startServer() {
 
       // Security Hash Verification
       const ayetApiKey = (process.env.AYET_STUDIOS_API_KEY || process.env.AYET_API_KEY || '').trim();
-      const incomingHash =
+      const incomingHash = (
         (req.headers['x-ayetstudios-security-hash'] as string) ||
         (req.headers['X-Ayetstudios-Security-Hash'] as string) ||
         (params.signature as string) ||
-        '';
+        ''
+      ).trim();
 
       if (ayetApiKey) {
         if (!incomingHash) {
@@ -658,30 +659,46 @@ async function startServer() {
           return res.status(401).json({ error: 'Missing X-Ayetstudios-Security-Hash signature header' });
         }
 
-        let isHashValid = false;
-        const rawBodyBuffer = (req as any).rawBody;
+        // Collect parameters (excluding signature/hash metadata)
+        const paramMap: Record<string, string> = {};
+        const mergedObj = { ...req.query, ...(typeof req.body === 'object' ? req.body : {}) };
 
-        if (rawBodyBuffer && Buffer.isBuffer(rawBodyBuffer) && rawBodyBuffer.length > 0) {
-          const computedHash = crypto
-            .createHmac('sha256', ayetApiKey)
-            .update(rawBodyBuffer)
-            .digest('hex');
-          if (computedHash.toLowerCase() === incomingHash.toLowerCase()) {
-            isHashValid = true;
+        for (const [key, val] of Object.entries(mergedObj)) {
+          if (key !== 'signature' && key !== 'hash' && val !== undefined && val !== null) {
+            paramMap[key] = String(val);
           }
         }
 
-        if (!isHashValid) {
-          // Fallback: verify against raw param string / JSON
-          const rawParamString = typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {});
-          const stringHash = crypto
-            .createHmac('sha256', ayetApiKey)
-            .update(rawParamString)
-            .digest('hex');
-          if (stringHash.toLowerCase() === incomingHash.toLowerCase()) {
-            isHashValid = true;
-          }
-        }
+        const sortedKeys = Object.keys(paramMap).sort();
+
+        // Build candidate sorted parameter strings according to ayeT postback specs
+        const urlEncodedParamString = new URLSearchParams(
+          sortedKeys.map((k) => [k, paramMap[k]])
+        ).toString();
+
+        const rawParamString = sortedKeys.map((k) => `${k}=${paramMap[k]}`).join('&');
+
+        const computedHashEncoded = crypto
+          .createHmac('sha256', ayetApiKey)
+          .update(urlEncodedParamString)
+          .digest('hex');
+
+        const computedHashRaw = crypto
+          .createHmac('sha256', ayetApiKey)
+          .update(rawParamString)
+          .digest('hex');
+
+        const safeCompare = (a: string, b: string) => {
+          if (!a || !b) return false;
+          const bufA = Buffer.from(a.toLowerCase());
+          const bufB = Buffer.from(b.toLowerCase());
+          if (bufA.length !== bufB.length) return false;
+          return crypto.timingSafeEqual(bufA, bufB);
+        };
+
+        const isHashValid =
+          safeCompare(computedHashEncoded, incomingHash) ||
+          safeCompare(computedHashRaw, incomingHash);
 
         if (!isHashValid) {
           dbManager.logFraudEvent(undefined, 90, 'ayeT Callback Rejected: Invalid HMAC Signature', {
