@@ -25,7 +25,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { api } from '../api';
-import { Withdrawal, RewardOpportunity, RewardSession, FraudEvent, AdminUser, AuditLog } from '../types';
+import { Withdrawal, RewardOpportunity, RewardSession, FraudEvent, AdminUser, AuditLog, AyetConversion } from '../types';
 
 export const AdminDashboardPage: React.FC = () => {
   const { admin, adminLogin, adminLogout } = useAuth();
@@ -33,7 +33,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [adminPassword, setAdminPassword] = useState('AdminSecure2026!');
   const [loginError, setLoginError] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'rewards' | 'withdrawals' | 'users' | 'referrals' | 'security' | 'audit_logs' | 'settings'>('withdrawals');
+  const [activeTab, setActiveTab] = useState<'rewards' | 'withdrawals' | 'users' | 'referrals' | 'security' | 'audit_logs' | 'settings' | 'ayet'>('withdrawals');
   const [metrics, setMetrics] = useState<any>(null);
   const [opportunities, setOpportunities] = useState<RewardOpportunity[]>([]);
   const [rewardSessions, setRewardSessions] = useState<RewardSession[]>([]);
@@ -42,6 +42,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [usersList, setUsersList] = useState<any[]>([]);
   const [referralsList, setReferralsList] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [ayetConversions, setAyetConversions] = useState<AyetConversion[]>([]);
 
   // User details inspector modal state
   const [selectedUserDetail, setSelectedUserDetail] = useState<any | null>(null);
@@ -83,7 +84,7 @@ export const AdminDashboardPage: React.FC = () => {
     if (!admin) return;
     try {
       setLoading(true);
-      const [overviewRes, withRes, usersRes, logsRes, rewardsRes, settingsRes, refsRes] = await Promise.all([
+      const [overviewRes, withRes, usersRes, logsRes, rewardsRes, settingsRes, refsRes, ayetRes] = await Promise.all([
         api.getAdminOverview(),
         api.getAdminWithdrawals(),
         api.getAdminUsers(),
@@ -91,8 +92,10 @@ export const AdminDashboardPage: React.FC = () => {
         api.getAdminRewards(),
         api.getAdminSettings().catch(() => ({ config: {} as any })),
         api.getAdminReferrals().catch(() => ({ referrals: [] })),
+        api.getAdminAyetConversions().catch(() => ({ conversions: [] })),
       ]);
       setMetrics(overviewRes.metrics);
+      setAyetConversions(ayetRes.conversions || []);
       if (settingsRes?.config) {
         setSettings({
           minimum_withdrawal: settingsRes.config.minimum_withdrawal ?? 500,
@@ -499,6 +502,18 @@ export const AdminDashboardPage: React.FC = () => {
           </button>
 
           <button
+            onClick={() => setActiveTab('ayet')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 shrink-0 cursor-pointer ${
+              activeTab === 'ayet'
+                ? 'bg-[#6C2BD9] text-white shadow-md'
+                : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#B8F500]" />
+            <span>ayeT Postbacks ({ayetConversions.length})</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('referrals')}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'referrals'
@@ -534,6 +549,88 @@ export const AdminDashboardPage: React.FC = () => {
             <span>Platform Controls</span>
           </button>
         </div>
+
+        {/* Tab: ayeT Postbacks Log */}
+        {activeTab === 'ayet' && (
+          <div className="bg-zinc-900 rounded-3xl p-4 sm:p-6 border border-zinc-800 space-y-4 max-w-full overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800 pb-4">
+              <div>
+                <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#B8F500]" />
+                  <span>ayeT-Studios Conversion Callbacks Log</span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Recorded server-to-server (S2S) postbacks with verified HMAC signatures and idempotency protection
+                </p>
+              </div>
+
+              <span className="text-xs font-bold text-zinc-400">
+                {ayetConversions.length} Total Conversions Recorded
+              </span>
+            </div>
+
+            {ayetConversions.length === 0 ? (
+              <div className="py-12 text-center space-y-2">
+                <p className="text-sm font-bold text-zinc-400">No ayeT conversion callbacks received yet.</p>
+                <p className="text-xs text-zinc-500">
+                  When users complete offerwall tasks, ayeT Studios will issue postbacks to /api/ayet/callback.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto max-w-full">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-zinc-800 text-zinc-400 font-bold uppercase text-[10px] tracking-wider">
+                      <th className="py-3 px-3">Transaction ID</th>
+                      <th className="py-3 px-3">User ID</th>
+                      <th className="py-3 px-3">Offer Name / ID</th>
+                      <th className="py-3 px-3">Payout (USD)</th>
+                      <th className="py-3 px-3">Reward Credited</th>
+                      <th className="py-3 px-3">Status</th>
+                      <th className="py-3 px-3">Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/60 text-zinc-300 font-medium">
+                    {ayetConversions.map((conv) => (
+                      <tr key={conv.id} className="hover:bg-zinc-800/40 transition-colors">
+                        <td className="py-3 px-3 font-mono text-[11px] text-zinc-200">
+                          {conv.transaction_id}
+                        </td>
+                        <td className="py-3 px-3 font-mono text-[11px] text-purple-300">
+                          {conv.user_id}
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="font-bold text-white">{conv.offer_name || 'Sponsored Offer'}</div>
+                          <div className="text-[10px] text-zinc-500">ID: {conv.offer_id || 'N/A'}</div>
+                        </td>
+                        <td className="py-3 px-3 text-zinc-300">
+                          ${(conv.payout_usd || 0).toFixed(2)}
+                        </td>
+                        <td className="py-3 px-3 font-bold text-[#B8F500]">
+                          +₦{conv.reward_amount.toFixed(2)}
+                        </td>
+                        <td className="py-3 px-3">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                              conv.is_chargeback || conv.status === 'chargeback' || conv.status === 'reversed'
+                                ? 'bg-red-950 text-red-400 border border-red-800'
+                                : 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                            }`}
+                          >
+                            {conv.is_chargeback ? 'CHARGEBACK' : conv.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-zinc-400 text-[11px]">
+                          {new Date(conv.created_at).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Tab 1: Withdrawals Queue */}
         {activeTab === 'withdrawals' && (

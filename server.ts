@@ -763,6 +763,97 @@ async function startServer() {
   app.post('/api/ayet/callback', handleAyetCallback);
   app.get('/api/ayet/callback', handleAyetCallback);
 
+  /**
+   * Fetch available offers or Offerwall integration link for authenticated user
+   */
+  app.get('/api/ayet/offers', requireUserAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const apiKey = (process.env.AYET_STUDIOS_API_KEY || process.env.AYET_API_KEY || '').trim();
+      const placementId = (process.env.AYET_PLACEMENT_ID || '').trim();
+      const publisherId = (process.env.AYET_PUBLISHER_ID || '').trim();
+      const apiBaseUrl = (process.env.AYET_API_BASE_URL || 'https://www.ayetstudios.com').replace(/\/+$/, '');
+      const userId = req.user!.id;
+
+      const isConfigured = Boolean(apiKey || placementId || publisherId);
+
+      if (!isConfigured) {
+        return res.json({
+          configured: false,
+          message: 'ayeT-Studios Offerwall is currently unconfigured or unavailable in this environment.',
+          offers: [],
+          offerwallUrl: null,
+        });
+      }
+
+      const offerwallUrl = placementId
+        ? `${apiBaseUrl}/offers/web/${placementId}?external_identifier=${encodeURIComponent(userId)}`
+        : null;
+
+      let offers: any[] = [];
+
+      if (apiKey && (placementId || publisherId)) {
+        try {
+          const params = new URLSearchParams({
+            api_key: apiKey,
+            placement_id: placementId,
+            external_identifier: userId,
+            ip: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1',
+          });
+
+          const apiUrl = `${apiBaseUrl}/api/offers?${params.toString()}`;
+          const response = await fetch(apiUrl, {
+            headers: {
+              'Accept': 'application/json',
+              'User-Agent': 'SwiftEarn/1.0',
+            },
+            signal: AbortSignal.timeout(5000),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data && Array.isArray(data.offers)) {
+              offers = data.offers.map((o: any) => ({
+                id: String(o.id || o.offer_id),
+                title: o.title || o.name || 'Sponsored Offer',
+                description: o.description || o.instructions || 'Complete required task to earn reward.',
+                reward_amount: o.currency_amount || (o.payout_usd ? Math.round(o.payout_usd * 1500) : 50),
+                currency: 'NGN',
+                category: o.category || 'sponsored_task',
+                icon_url: o.icon || o.image_url || o.icon_url,
+                tracking_link: o.tracking_link || o.link || `${apiBaseUrl}/offers/launch/${o.id}?external_identifier=${encodeURIComponent(userId)}`,
+                instructions: o.instructions || o.conversion_requirement,
+                estimated_minutes: o.estimated_minutes || 5,
+                provider: 'ayeT-Studios',
+              }));
+            }
+          }
+        } catch (fetchErr) {
+          console.warn('ayeT API fetch warning, falling back to direct offerwall URL:', fetchErr);
+        }
+      }
+
+      res.json({
+        configured: true,
+        offers,
+        offerwallUrl,
+        publisherId: publisherId || null,
+        placementId: placementId || null,
+      });
+    } catch (err: any) {
+      console.error('Error in /api/ayet/offers:', err);
+      res.status(500).json({ error: 'Failed to retrieve ayeT offers' });
+    }
+  });
+
+  app.get('/api/admin/ayet-conversions', requireAdminAuth, (req: AuthenticatedRequest, res) => {
+    try {
+      const conversions = dbManager.getAyetConversions();
+      res.json({ conversions });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to retrieve ayeT conversions' });
+    }
+  });
+
   // ----------------------------------------------------
   // Notifications Endpoints
   // ----------------------------------------------------

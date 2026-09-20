@@ -16,6 +16,7 @@ import {
   AuditLog,
   NotificationItem,
   SystemConfig,
+  AyetConversion,
 } from './types.js';
 
 interface DatabaseSchema {
@@ -33,6 +34,7 @@ interface DatabaseSchema {
   audit_logs: AuditLog[];
   notifications: NotificationItem[];
   config: SystemConfig;
+  ayet_conversions?: AyetConversion[];
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -448,7 +450,9 @@ class DatabaseManager {
       }
       if (fs.existsSync(DATA_FILE)) {
         const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-        return JSON.parse(raw);
+        const data = JSON.parse(raw);
+        data.ayet_conversions = data.ayet_conversions || [];
+        return data;
       }
     } catch (e) {
       console.warn('Could not read existing database file, seeding fresh:', e);
@@ -805,7 +809,7 @@ class DatabaseManager {
 
   // Reward Opportunities & Sessions
   getOpportunities(): RewardOpportunity[] {
-    return this.db.reward_opportunities.filter((o) => o.active);
+    return this.db.reward_opportunities.filter((o) => o.active && !o.is_demo);
   }
 
   getAllOpportunities(): RewardOpportunity[] {
@@ -1223,6 +1227,33 @@ class DatabaseManager {
         ip_address: params.ipAddress,
       });
 
+      // Record / update conversion record
+      if (!this.db.ayet_conversions) this.db.ayet_conversions = [];
+      const convIdx = this.db.ayet_conversions.findIndex((c) => c.transaction_id === params.transactionId);
+      if (convIdx !== -1) {
+        this.db.ayet_conversions[convIdx].status = 'reversed';
+        this.db.ayet_conversions[convIdx].is_chargeback = true;
+        this.db.ayet_conversions[convIdx].reversed_at = new Date().toISOString();
+      } else {
+        this.db.ayet_conversions.push({
+          id: `ayet_conv_${crypto.randomBytes(8).toString('hex')}`,
+          transaction_id: params.transactionId,
+          external_identifier: params.externalIdentifier,
+          user_id: user.id,
+          offer_id: params.offerId,
+          offer_name: params.offerName,
+          payout_usd: params.payoutUsd,
+          currency_amount: params.currencyAmount,
+          reward_amount: deductAmount,
+          currency: 'NGN',
+          status: 'reversed',
+          is_chargeback: true,
+          created_at: new Date().toISOString(),
+          processed_at: new Date().toISOString(),
+          reversed_at: new Date().toISOString(),
+        });
+      }
+
       this.persist();
 
       return {
@@ -1289,6 +1320,27 @@ class DatabaseManager {
       ip_address: params.ipAddress,
     });
 
+    if (!this.db.ayet_conversions) this.db.ayet_conversions = [];
+    const existingConv = this.db.ayet_conversions.find((c) => c.transaction_id === params.transactionId);
+    if (!existingConv) {
+      this.db.ayet_conversions.push({
+        id: `ayet_conv_${crypto.randomBytes(8).toString('hex')}`,
+        transaction_id: params.transactionId,
+        external_identifier: params.externalIdentifier,
+        user_id: user.id,
+        offer_id: params.offerId,
+        offer_name: params.offerName,
+        payout_usd: params.payoutUsd,
+        currency_amount: params.currencyAmount,
+        reward_amount: creditAmount,
+        currency: 'NGN',
+        status: 'confirmed',
+        is_chargeback: false,
+        created_at: new Date().toISOString(),
+        processed_at: new Date().toISOString(),
+      });
+    }
+
     this.persist();
 
     return {
@@ -1299,6 +1351,15 @@ class DatabaseManager {
       pointsEarned: creditAmount,
       newBalance: creditRes.wallet.available_balance,
     };
+  }
+
+  getAyetConversions(): AyetConversion[] {
+    if (!this.db.ayet_conversions) {
+      this.db.ayet_conversions = [];
+    }
+    return [...this.db.ayet_conversions].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
   }
 
   getAllRewardSessions(): RewardSession[] {

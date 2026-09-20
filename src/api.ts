@@ -8,6 +8,8 @@ import {
   NotificationItem,
   SystemConfig,
   PublicStats,
+  AyetConversion,
+  AyetOffer,
 } from './types';
 import { isSupabaseConfigured, getSupabaseClient, supabaseDb } from './lib/supabase';
 
@@ -1027,5 +1029,34 @@ export const api = {
       return { auditLogs };
     }
     return request<{ auditLogs: any[] }>('/api/admin/audit-logs', {}, true);
+  },
+
+  // ayeT-Studios Offerwall & Admin Conversions
+  getAyetOffers: async () => {
+    try {
+      return await request<{
+        configured: boolean;
+        message?: string;
+        offers: AyetOffer[];
+        offerwallUrl: string | null;
+        publisherId?: string | null;
+        placementId?: string | null;
+      }>('/api/ayet/offers');
+    } catch (err: any) {
+      return {
+        configured: false,
+        message: err.message || 'Failed to load ayeT offers.',
+        offers: [],
+        offerwallUrl: null,
+      };
+    }
+  },
+
+  getAdminAyetConversions: async () => {
+    try {
+      return await request<{ conversions: AyetConversion[] }>('/api/admin/ayet-conversions', {}, true);
+    } catch (err: any) {
+      return { conversions: [] };
+    }
   },
 };

@@ -244,3 +244,36 @@ export interface PublicStats {
   demoMode: boolean;
   minimumWithdrawal: number;
 }
+
+export interface AyetConversion {
+  id: string;
+  transaction_id: string;
+  external_identifier: string;
+  user_id: string;
+  offer_id?: string;
+  offer_name?: string;
+  payout_usd?: number;
+  currency_amount?: number;
+  reward_amount: number;
+  currency: string;
+  status: 'confirmed' | 'reversed';
+  is_chargeback: boolean;
+  created_at: string;
+  processed_at: string;
+  reversed_at?: string;
+}
+
+export interface AyetOffer {
+  id: string;
+  title: string;
+  description: string;
+  reward_amount: number;
+  currency: string;
+  category: 'video' | 'survey' | 'app_trial' | 'sponsored_task';
+  icon_url?: string;
+  tracking_link: string;
+  instructions?: string;
+  estimated_minutes?: number;
+  provider: string;
+}
+
