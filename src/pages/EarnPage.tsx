@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { RefreshCw, Sparkles, ShieldCheck, CheckCircle2, Layers, Check, Info, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { AdsterraBanner } from '../components/common/AdsterraBanner';
+import { AdsterraBanner160x300 } from '../components/common/AdsterraBanner160x300';
 
 interface EarnPageProps {
   onRefreshWallet?: () => void;
@@ -21,14 +22,6 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onNavigate 
 
   // Structured upcoming Adsterra format placements (prepared for step-by-step rollout)
   const upcomingAdsterraFormats = [
-    {
-      id: 'format_160x300',
-      name: '160 × 300 Skyscraper',
-      type: 'Display Banner',
-      description: 'Vertical sidebar advertising unit optimized for desktop and tablet screens.',
-      status: 'Prepared for Activation',
-      provider: 'Adsterra',
-    },
     {
       id: 'format_native',
       name: 'Native Banner',
@@ -140,7 +133,7 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onNavigate 
                 </h2>
               </div>
               <p className="text-xs text-zinc-500 mt-0.5">
-                Live Adsterra 300 × 250 display banner running on Swift Earn
+                Live Adsterra display banners running on Swift Earn (300 × 250 &amp; 160 × 300)
               </p>
             </div>
             <span className="text-[11px] font-mono text-zinc-400">
@@ -148,8 +141,16 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onNavigate 
             </span>
           </div>
 
-          {/* Adsterra 300x250 Banner Placement */}
-          <AdsterraBanner />
+          {/* Active Ad Placements: 300x250 Medium Rectangle and 160x300 Skyscraper */}
+          {/* Stacks vertically on mobile/small screens; displays side-by-side on md+ screens */}
+          <div className="w-full flex flex-col md:flex-row items-center md:items-start justify-center gap-0 md:gap-6 my-2">
+            <div className="w-full md:w-auto flex justify-center">
+              <AdsterraBanner />
+            </div>
+            <div className="w-full md:w-auto flex justify-center">
+              <AdsterraBanner160x300 />
+            </div>
+          </div>
         </div>
 
         {/* Section 2: Prepared Additional Adsterra Formats (Structured for Future Rollout) */}
