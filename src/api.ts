@@ -8,8 +8,6 @@ import {
   NotificationItem,
   SystemConfig,
   PublicStats,
-  AyetConversion,
-  AyetOffer,
 } from './types';
 import { isSupabaseConfigured, getSupabaseClient, supabaseDb } from './lib/supabase';
 
@@ -154,6 +152,78 @@ const FALLBACK_OPPORTUNITIES: RewardOpportunity[] = [
     status: 'active',
     description: 'Simulate testing a partner mobile product and claim verified test points.',
     is_demo: true,
+    active: true,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'opp_task_survey_01',
+    name: 'Partner Opinion Survey',
+    title: 'Partner Opinion Survey',
+    provider: 'SwiftEarnInternal',
+    category: 'survey',
+    reward_amount: 35,
+    reward_points: 35,
+    estimated_duration: 60,
+    estimated_seconds: 60,
+    daily_limit: 5,
+    daily_cap: 5,
+    status: 'active',
+    description: 'Complete a verified partner survey to share consumer feedback and earn points.',
+    is_demo: false,
+    active: true,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'opp_task_eval_02',
+    name: 'Product Experience Review',
+    title: 'Product Experience Review',
+    provider: 'SwiftEarnInternal',
+    category: 'sponsored_task',
+    reward_amount: 25,
+    reward_points: 25,
+    estimated_duration: 45,
+    estimated_seconds: 45,
+    daily_limit: 5,
+    daily_cap: 5,
+    status: 'active',
+    description: 'Evaluate brand interactive features and submit verified product feedback.',
+    is_demo: false,
+    active: true,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'opp_task_market_03',
+    name: 'Market Insights Activity',
+    title: 'Market Insights Activity',
+    provider: 'SwiftEarnInternal',
+    category: 'app_trial',
+    reward_amount: 50,
+    reward_points: 50,
+    estimated_duration: 90,
+    estimated_seconds: 90,
+    daily_limit: 3,
+    daily_cap: 3,
+    status: 'active',
+    description: 'Participate in a brand consumer trend activity for high-yield reward points.',
+    is_demo: false,
+    active: true,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'opp_task_daily_04',
+    name: 'Daily Engagement Task',
+    title: 'Daily Engagement Task',
+    provider: 'SwiftEarnInternal',
+    category: 'sponsored_task',
+    reward_amount: 15,
+    reward_points: 15,
+    estimated_duration: 30,
+    estimated_seconds: 30,
+    daily_limit: 10,
+    daily_cap: 10,
+    status: 'active',
+    description: 'Quick daily user verification and engagement activity for consistent earnings.',
+    is_demo: false,
     active: true,
     created_at: new Date().toISOString(),
   },
@@ -1029,34 +1099,5 @@ export const api = {
       return { auditLogs };
     }
     return request<{ auditLogs: any[] }>('/api/admin/audit-logs', {}, true);
-  },
-
-  // ayeT-Studios Offerwall & Admin Conversions
-  getAyetOffers: async () => {
-    try {
-      return await request<{
-        configured: boolean;
-        message?: string;
-        offers: AyetOffer[];
-        offerwallUrl: string | null;
-        publisherId?: string | null;
-        placementId?: string | null;
-      }>('/api/ayet/offers');
-    } catch (err: any) {
-      return {
-        configured: false,
-        message: err.message || 'Failed to load ayeT offers.',
-        offers: [],
-        offerwallUrl: null,
-      };
-    }
-  },
-
-  getAdminAyetConversions: async () => {
-    try {
-      return await request<{ conversions: AyetConversion[] }>('/api/admin/ayet-conversions', {}, true);
-    } catch (err: any) {
-      return { conversions: [] };
-    }
   },
 };

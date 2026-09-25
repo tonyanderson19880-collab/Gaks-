@@ -12,7 +12,7 @@ import {
   ChevronRight,
   Zap,
 } from 'lucide-react';
-import { RewardOpportunity, LedgerEntry, AyetOffer } from '../types';
+import { RewardOpportunity, LedgerEntry } from '../types';
 import { api } from '../api';
 
 interface DashboardPageProps {
@@ -26,7 +26,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 }) => {
   const { user, profile, wallet, refreshUserData } = useAuth();
   const [opportunities, setOpportunities] = useState<RewardOpportunity[]>([]);
-  const [ayetOffers, setAyetOffers] = useState<AyetOffer[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<LedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -34,11 +33,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     const loadDashboardData = async () => {
       try {
         setLoading(true);
-        const [ayetRes, txRes] = await Promise.all([
-          api.getAyetOffers(),
+        const [oppsRes, txRes] = await Promise.all([
+          api.getOpportunities(),
           api.getTransactions(),
         ]);
-        setAyetOffers(ayetRes.offers || []);
+        setOpportunities(oppsRes.opportunities || []);
         setRecentTransactions((txRes.transactions || []).slice(0, 5));
       } catch (err: any) {
         if (!err?.message?.includes('Authentication')) {
@@ -238,36 +237,36 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </button>
           </div>
 
-          {ayetOffers.length > 0 ? (
+          {opportunities.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {ayetOffers.slice(0, 4).map((offer) => (
+              {opportunities.slice(0, 4).map((opp) => (
                 <div
-                  key={offer.id}
+                  key={opp.id}
                   className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow"
                 >
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <span className="bg-purple-100 text-[#6C2BD9] text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wide">
-                        {offer.provider || 'ayeT-Studios'}
+                        {opp.category || 'Task'}
                       </span>
                       <span className="text-xs font-extrabold text-[#6C2BD9]">
-                        +₦{offer.reward_amount.toFixed(2)}
+                        +₦{(opp.reward_amount || opp.reward_points || 10).toFixed(2)}
                       </span>
                     </div>
 
-                    <h3 className="text-sm font-bold text-zinc-900 line-clamp-1">{offer.title}</h3>
+                    <h3 className="text-sm font-bold text-zinc-900 line-clamp-1">{opp.title || opp.name}</h3>
                     <p className="text-xs text-zinc-500 mt-1 line-clamp-2 leading-relaxed">
-                      {offer.description}
+                      {opp.description}
                     </p>
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-zinc-100 flex items-center justify-between">
-                    <span className="text-[11px] text-zinc-400">~{offer.estimated_minutes || 5} mins</span>
+                    <span className="text-[11px] text-zinc-400">~{opp.estimated_seconds || opp.estimated_duration || 30}s</span>
                     <button
-                      onClick={() => onNavigate('earn')}
+                      onClick={() => onStartRewardOpportunity(opp)}
                       className="px-3.5 py-1.5 rounded-lg bg-[#6C2BD9] hover:bg-[#5821B0] text-white text-xs font-bold transition-colors cursor-pointer"
                     >
-                      Start Offer
+                      Start Task
                     </button>
                   </div>
                 </div>
@@ -275,7 +274,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </div>
           ) : (
             <div className="bg-white rounded-2xl p-6 border border-zinc-200 text-center space-y-3">
-              <p className="text-sm font-bold text-zinc-800">Visit the Earn page to explore all active ayeT Studios sponsor offers.</p>
+              <p className="text-sm font-bold text-zinc-800">Visit the Earn page to explore all active tasks and reward opportunities.</p>
               <button
                 onClick={() => onNavigate('earn')}
                 className="px-5 py-2.5 rounded-xl bg-[#6C2BD9] text-white text-xs font-extrabold hover:bg-[#5821B0] transition-colors cursor-pointer"

@@ -1,0 +1,476 @@
+{
+  "admin_users": [
+    {
+      "id": "admin_001",
+      "email": "admin@swiftearn.demo",
+      "password_hash": "24523f01c28ab3a50bdeb375597f53a525539fa79fbf6c2d9a08f8051887a749",
+      "full_name": "Swift Earn Operations Admin",
+      "role": "super_admin",
+      "created_at": "2026-08-26T16:50:24.460Z"
+    }
+  ],
+  "users": [
+    {
+      "id": "user_001",
+      "email": "user@swiftearn.demo",
+      "password_hash": "d14248604480834b19cf306d0b38b9a0386fbd7868f807ad4861e2d21051dd83",
+      "status": "active",
+      "referral_code": "SE-DEMO1",
+      "referred_by_user_id": null,
+      "created_at": "2026-09-11T16:50:24.460Z",
+      "updated_at": "2026-09-25T16:50:24.460Z"
+    },
+    {
+      "id": "user_002",
+      "email": "jane@swiftearn.demo",
+      "password_hash": "d14248604480834b19cf306d0b38b9a0386fbd7868f807ad4861e2d21051dd83",
+      "status": "active",
+      "referral_code": "SE-JANE2",
+      "referred_by_user_id": "user_001",
+      "created_at": "2026-09-18T16:50:24.460Z",
+      "updated_at": "2026-09-25T16:50:24.460Z"
+    },
+    {
+      "id": "user_003",
+      "email": "sam.flagged@swiftearn.demo",
+      "password_hash": "d14248604480834b19cf306d0b38b9a0386fbd7868f807ad4861e2d21051dd83",
+      "status": "flagged",
+      "referral_code": "SE-FLAG3",
+      "referred_by_user_id": null,
+      "created_at": "2026-09-23T16:50:24.460Z",
+      "updated_at": "2026-09-25T16:50:24.460Z"
+    }
+  ],
+  "profiles": [
+    {
+      "user_id": "user_001",
+      "full_name": "Alex Morgan",
+      "avatar_initials": "AM",
+      "phone": "+234 801 234 5678",
+      "country": "Nigeria",
+      "preferred_payment_method": "bank_transfer",
+      "bank_name": "Zenith Bank",
+      "account_number": "2087654321",
+      "account_name": "Alex Morgan",
+      "email_notifications": true,
+      "reward_alerts": true,
+      "created_at": "2026-09-11T16:50:24.460Z",
+      "updated_at": "2026-09-25T16:50:24.460Z"
+    },
+    {
+      "user_id": "user_002",
+      "full_name": "Jane Doe",
+      "avatar_initials": "JD",
+      "phone": "+234 809 876 5432",
+      "country": "Nigeria",
+      "preferred_payment_method": "bank_transfer",
+      "bank_name": "GTBank",
+      "account_number": "0123456789",
+      "account_name": "Jane Doe",
+      "email_notifications": true,
+      "reward_alerts": true,
+      "created_at": "2026-09-18T16:50:24.460Z",
+      "updated_at": "2026-09-25T16:50:24.460Z"
+    },
+    {
+      "user_id": "user_003",
+      "full_name": "Sam Spoofer",
+      "avatar_initials": "SS",
+      "phone": "+234 812 000 0000",
+      "country": "Nigeria",
+      "preferred_payment_method": "fintech_wallet",
+      "bank_name": "Opay",
+      "account_number": "8120000000",
+      "account_name": "Sam Spoofer",
+      "email_notifications": false,
+      "reward_alerts": true,
+      "created_at": "2026-09-23T16:50:24.460Z",
+      "updated_at": "2026-09-25T16:50:24.460Z"
+    }
+  ],
+  "wallets": [
+    {
+      "user_id": "user_001",
+      "available_balance": 1450,
+      "pending_rewards": 50,
+      "total_earned": 2450,
+      "total_withdrawn": 1000,
+      "currency": "NGN",
+      "updated_at": "2026-09-25T16:50:24.460Z"
+    },
+    {
+      "user_id": "user_002",
+      "available_balance": 350,
+      "pending_rewards": 0,
+      "total_earned": 350,
+      "total_withdrawn": 0,
+      "currency": "NGN",
+      "updated_at": "2026-09-25T16:50:24.460Z"
+    },
+    {
+      "user_id": "user_003",
+      "available_balance": 100,
+      "pending_rewards": 100,
+      "total_earned": 200,
+      "total_withdrawn": 0,
+      "currency": "NGN",
+      "updated_at": "2026-09-25T16:50:24.460Z"
+    }
+  ],
+  "reward_opportunities": [
+    {
+      "id": "opp_demo_vid_01",
+      "title": "Demo Rewarded Video",
+      "name": "Demo Rewarded Video",
+      "description": "Simulate watching a 30-second rewarded sponsor video to completion.",
+      "category": "video",
+      "reward_points": 10,
+      "reward_amount": 10,
+      "estimated_seconds": 30,
+      "estimated_duration": 30,
+      "provider": "Demo",
+      "is_demo": true,
+      "active": true,
+      "status": "active",
+      "daily_cap": 10,
+      "daily_limit": 10,
+      "created_at": "2026-08-26T16:50:24.460Z",
+      "updated_at": "2026-09-25T16:50:24.460Z"
+    },
+    {
+      "id": "opp_demo_vid_02",
+      "title": "Demo Quick Clip",
+      "name": "Demo Quick Clip",
+      "description": "Watch a fast 15-second sponsor demonstration clip for rapid reward testing.",
+      "category": "video",
+      "reward_points": 5,
+      "reward_amount": 5,
+      "estimated_seconds": 15,
+      "estimated_duration": 15,
+      "provider": "Demo",
+      "is_demo": true,
+      "active": true,
+      "status": "active",
+      "daily_cap": 15,
+      "daily_limit": 15,
+      "created_at": "2026-08-31T16:50:24.460Z",
+      "updated_at": "2026-09-25T16:50:24.460Z"
+    },
+    {
+      "id": "opp_demo_survey_01",
+      "title": "Demo Interactive Survey",
+      "name": "Demo Interactive Survey",
+      "description": "Simulate completing an interactive brand feedback survey for bonus points.",
+      "category": "survey",
+      "reward_points": 15,
+      "reward_amount": 15,
+      "estimated_seconds": 45,
+      "estimated_duration": 45,
+      "provider": "Demo",
+      "is_demo": true,
+      "active": true,
+      "status": "active",
+      "daily_cap": 5,
+      "daily_limit": 5,
+      "created_at": "2026-09-05T16:50:24.460Z",
+      "updated_at": "2026-09-25T16:50:24.460Z"
+    },
+    {
+      "id": "opp_demo_app_01",
+      "title": "Demo App Engagement",
+      "name": "Demo App Engagement",
+      "description": "Simulate testing a partner mobile product and claim verified test points.",
+      "category": "app_trial",
+      "reward_points": 20,
+      "reward_amount": 20,
+      "estimated_seconds": 60,
+      "estimated_duration": 60,
+      "provider": "Demo",
+      "is_demo": true,
+      "active": true,
+      "status": "active",
+      "daily_cap": 5,
+      "daily_limit": 5,
+      "created_at": "2026-09-10T16:50:24.460Z",
+      "updated_at": "2026-09-25T16:50:24.460Z"
+    },
+    {
+      "id": "opp_task_survey_01",
+      "title": "Partner Opinion Survey",
+      "name": "Partner Opinion Survey",
+      "description": "Complete a verified partner survey to share consumer feedback and earn points.",
+      "category": "survey",
+      "reward_points": 35,
+      "reward_amount": 35,
+      "estimated_seconds": 60,
+      "estimated_duration": 60,
+      "provider": "SwiftEarnInternal",
+      "is_demo": false,
+      "active": true,
+      "status": "active",
+      "daily_cap": 5,
+      "daily_limit": 5,
+      "created_at": "2026-09-25T16:57:37.288Z",
+      "updated_at": "2026-09-25T16:57:37.288Z"
+    },
+    {
+      "id": "opp_task_eval_02",
+      "title": "Product Experience Review",
+      "name": "Product Experience Review",
+      "description": "Evaluate brand interactive features and submit verified product feedback.",
+      "category": "sponsored_task",
+      "reward_points": 25,
+      "reward_amount": 25,
+      "estimated_seconds": 45,
+      "estimated_duration": 45,
+      "provider": "SwiftEarnInternal",
+      "is_demo": false,
+      "active": true,
+      "status": "active",
+      "daily_cap": 5,
+      "daily_limit": 5,
+      "created_at": "2026-09-25T16:57:37.288Z",
+      "updated_at": "2026-09-25T16:57:37.288Z"
+    },
+    {
+      "id": "opp_task_market_03",
+      "title": "Market Insights Activity",
+      "name": "Market Insights Activity",
+      "description": "Participate in a brand consumer trend activity for high-yield reward points.",
+      "category": "app_trial",
+      "reward_points": 50,
+      "reward_amount": 50,
+      "estimated_seconds": 90,
+      "estimated_duration": 90,
+      "provider": "SwiftEarnInternal",
+      "is_demo": false,
+      "active": true,
+      "status": "active",
+      "daily_cap": 3,
+      "daily_limit": 3,
+      "created_at": "2026-09-25T16:57:37.288Z",
+      "updated_at": "2026-09-25T16:57:37.288Z"
+    },
+    {
+      "id": "opp_task_daily_04",
+      "title": "Daily Engagement Task",
+      "name": "Daily Engagement Task",
+      "description": "Quick daily user verification and engagement activity for consistent earnings.",
+      "category": "sponsored_task",
+      "reward_points": 15,
+      "reward_amount": 15,
+      "estimated_seconds": 30,
+      "estimated_duration": 30,
+      "provider": "SwiftEarnInternal",
+      "is_demo": false,
+      "active": true,
+      "status": "active",
+      "daily_cap": 10,
+      "daily_limit": 10,
+      "created_at": "2026-09-25T16:57:37.288Z",
+      "updated_at": "2026-09-25T16:57:37.288Z"
+    }
+  ],
+  "reward_sessions": [],
+  "reward_events": [],
+  "ledger_entries": [
+    {
+      "id": "ledg_001",
+      "user_id": "user_001",
+      "entry_type": "reward_credit",
+      "amount": 500,
+      "running_balance": 500,
+      "status": "confirmed",
+      "reference": "TX-REW-INIT-001",
+      "description": "Initial welcome reward credits for verified account profile setup",
+      "idempotency_key": "idemp_welcome_001",
+      "created_at": "2026-09-11T16:50:24.460Z"
+    },
+    {
+      "id": "ledg_002",
+      "user_id": "user_001",
+      "entry_type": "referral_bonus",
+      "amount": 50,
+      "running_balance": 550,
+      "status": "confirmed",
+      "reference": "TX-REF-BONUS-001",
+      "description": "Referral reward credit for user Jane Doe (SE-JANE2)",
+      "idempotency_key": "idemp_ref_jane_001",
+      "created_at": "2026-09-18T16:50:24.460Z"
+    },
+    {
+      "id": "ledg_003",
+      "user_id": "user_001",
+      "entry_type": "reward_credit",
+      "amount": 1900,
+      "running_balance": 2450,
+      "status": "confirmed",
+      "reference": "TX-REW-BATCH-002",
+      "description": "Aggregated confirmed ad rewards completion",
+      "idempotency_key": "idemp_agg_batch_002",
+      "created_at": "2026-09-21T16:50:24.460Z"
+    },
+    {
+      "id": "ledg_004",
+      "user_id": "user_001",
+      "entry_type": "withdrawal_debit",
+      "amount": -1000,
+      "running_balance": 1450,
+      "status": "confirmed",
+      "reference": "TX-WTH-REQ-1001",
+      "description": "Bank transfer payout withdrawal processed successfully to Zenith Bank",
+      "idempotency_key": "idemp_wth_1001",
+      "created_at": "2026-09-23T16:50:24.460Z"
+    }
+  ],
+  "withdrawals": [
+    {
+      "id": "wth_001",
+      "user_id": "user_001",
+      "amount": 1000,
+      "currency": "NGN",
+      "payment_method": "bank_transfer",
+      "account_details": {
+        "bank_name": "Zenith Bank",
+        "account_number": "2087654321",
+        "account_name": "Alex Morgan"
+      },
+      "reference": "WTH-REF-883921",
+      "status": "completed",
+      "admin_notes": "Payment confirmed via automated NIP settlement partner",
+      "processed_at": "2026-09-23T16:50:24.460Z",
+      "created_at": "2026-09-22T16:50:24.460Z",
+      "updated_at": "2026-09-23T16:50:24.460Z"
+    },
+    {
+      "id": "wth_002",
+      "user_id": "user_003",
+      "amount": 600,
+      "currency": "NGN",
+      "payment_method": "opay",
+      "account_details": {
+        "wallet_id": "OPAY-8120000000",
+        "wallet_provider": "OPay",
+        "account_number": "8120000000",
+        "account_name": "David Adeleke"
+      },
+      "reference": "WTH-REF-192837",
+      "status": "pending",
+      "admin_notes": "Awaiting admin clearance review",
+      "created_at": "2026-09-24T16:50:24.460Z",
+      "updated_at": "2026-09-24T16:50:24.460Z"
+    }
+  ],
+  "referrals": [
+    {
+      "id": "ref_001",
+      "referrer_user_id": "user_001",
+      "referred_user_id": "user_002",
+      "referral_code": "SE-DEMO1",
+      "status": "rewarded",
+      "qualification_status": "completed",
+      "reward_amount": 50,
+      "created_at": "2026-09-18T16:50:24.460Z",
+      "rewarded_at": "2026-09-18T16:50:24.460Z"
+    }
+  ],
+  "fraud_events": [
+    {
+      "id": "frd_001",
+      "user_id": "user_003",
+      "risk_score": 85,
+      "flag_reason": "Automated rapid session attempt detected (duration < 2s)",
+      "details": {
+        "ip": "197.210.45.12",
+        "user_agent": "HeadlessChrome/118.0",
+        "attemptCount": 14
+      },
+      "resolved": false,
+      "created_at": "2026-09-23T16:50:24.460Z"
+    }
+  ],
+  "audit_logs": [
+    {
+      "id": "aud_001",
+      "admin_id": "admin_001",
+      "action": "UPDATE_SYSTEM_CONFIG",
+      "target_resource": "config",
+      "target_id": "global_config",
+      "details": {
+        "minimum_withdrawal": 500,
+        "daily_cap": 30
+      },
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-09-15T16:50:24.460Z"
+    },
+    {
+      "id": "aud_002",
+      "admin_id": "admin_001",
+      "action": "APPROVE_WITHDRAWAL",
+      "target_resource": "withdrawals",
+      "target_id": "wth_001",
+      "details": {
+        "amount": 1000,
+        "reference": "WTH-REF-883921"
+      },
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-09-23T16:50:24.460Z"
+    }
+  ],
+  "notifications": [
+    {
+      "id": "notif_001",
+      "user_id": "user_001",
+      "title": "Withdrawal Completed",
+      "message": "Your payout of ₦1,000.00 to Zenith Bank has been completed successfully.",
+      "type": "withdrawal",
+      "read": false,
+      "created_at": "2026-09-23T16:50:24.460Z"
+    },
+    {
+      "id": "notif_002",
+      "user_id": "user_001",
+      "title": "Referral Bonus Received",
+      "message": "Jane Doe registered with your code! ₦50.00 bonus credited to your wallet.",
+      "type": "referral",
+      "read": true,
+      "created_at": "2026-09-18T16:50:24.460Z"
+    },
+    {
+      "id": "notif_003",
+      "user_id": "user_001",
+      "title": "Welcome to Swift Earn",
+      "message": "Explore eligible rewarded opportunities and start earning real rewards today.",
+      "type": "system",
+      "read": true,
+      "created_at": "2026-09-11T16:50:24.460Z"
+    }
+  ],
+  "config": {
+    "reward_point_multiplier": 1,
+    "minimum_withdrawal": 500,
+    "maximum_withdrawal": 50000,
+    "daily_withdrawal_limit": 100000,
+    "max_pending_withdrawals": 1,
+    "point_value_naira": 1,
+    "supported_payment_methods": [
+      "bank_transfer",
+      "opay",
+      "palmpay",
+      "kuda",
+      "crypto"
+    ],
+    "maximum_daily_rewards": 30,
+    "referral_bonus_amount": 50,
+    "allowed_providers": [
+      "SwiftEarnCompliantNetwork",
+      "UnityAdsRewarded"
+    ],
+    "demo_mode": true,
+    "public_stats": {
+      "users_count": "10K+",
+      "rewards_completed": "50K+",
+      "rewards_issued": "₦12.5M"
+    }
+  }
+}

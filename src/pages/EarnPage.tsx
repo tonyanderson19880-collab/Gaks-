@@ -1,68 +1,60 @@
 import React, { useState, useEffect } from 'react';
-import { ExternalLink, RefreshCw, Award, Sparkles, ShieldCheck, CheckCircle2, Layers, Gift, Layers3 } from 'lucide-react';
-import { AyetOffer } from '../types';
+import { RefreshCw, Award, Sparkles, ShieldCheck, CheckCircle2, Clock, Play, ArrowRight, Layers3, Flame, Check } from 'lucide-react';
+import { RewardOpportunity } from '../types';
 import { api } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 interface EarnPageProps {
   onRefreshWallet?: () => void;
+  onStartRewardOpportunity?: (opportunity: RewardOpportunity) => void;
 }
 
-export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet }) => {
-  const [offers, setOffers] = useState<AyetOffer[]>([]);
-  const [offerwallUrl, setOfferwallUrl] = useState<string | null>(null);
-  const [isConfigured, setIsConfigured] = useState<boolean>(true);
-  const [message, setMessage] = useState<string>('');
+export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onStartRewardOpportunity }) => {
+  const { wallet, refreshUserData } = useAuth();
+  const [opportunities, setOpportunities] = useState<RewardOpportunity[]>([]);
+  const [dailyCounts, setDailyCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [notice, setNotice] = useState<string | null>(null);
 
-  const fetchAyetOffers = async () => {
+  const fetchOpportunities = async () => {
     try {
       setLoading(true);
-      const res = await api.getAyetOffers();
-      setIsConfigured(res.configured);
-      setMessage(res.message || '');
-      setOffers(res.offers || []);
-      setOfferwallUrl(res.offerwallUrl || null);
+      const [oppsRes, countsRes] = await Promise.all([
+        api.getOpportunities(),
+        api.getDailyRewardCounts(),
+      ]);
+      setOpportunities(oppsRes.opportunities || []);
+      setDailyCounts(countsRes.counts || {});
     } catch (err: any) {
-      console.error('Failed to load ayeT offers:', err);
-      setIsConfigured(false);
-      setMessage('Unable to connect to ayeT offerwall service.');
+      console.error('Failed to load reward opportunities:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAyetOffers();
+    fetchOpportunities();
   }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchAyetOffers();
+    await Promise.all([fetchOpportunities(), refreshUserData()]);
     if (onRefreshWallet) onRefreshWallet();
-    setTimeout(() => setRefreshing(false), 600);
-  };
-
-  const handleStartOffer = (trackingUrl: string, offerTitle: string) => {
-    setNotice(`Redirecting to "${offerTitle}". Complete the advertiser's required action. Once ayeT Studios sends the verified callback, your wallet will be credited automatically.`);
-    setTimeout(() => {
-      window.open(trackingUrl, '_blank', 'noopener,noreferrer');
-    }, 300);
+    setTimeout(() => setRefreshing(false), 500);
   };
 
   const categories = [
-    { id: 'all', label: 'All Offers' },
+    { id: 'all', label: 'All Tasks' },
     { id: 'sponsored_task', label: 'Tasks' },
     { id: 'survey', label: 'Surveys' },
     { id: 'app_trial', label: 'App Trials' },
-    { id: 'video', label: 'Videos' },
+    { id: 'video', label: 'Media' },
   ];
 
-  const filteredOffers = offers.filter((off) => {
+  const filteredOpportunities = opportunities.filter((opp) => {
     if (selectedCategory === 'all') return true;
-    return (off.category || 'sponsored_task').toLowerCase() === selectedCategory;
+    return (opp.category || 'sponsored_task').toLowerCase() === selectedCategory;
   });
 
   return (
@@ -78,10 +70,10 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet }) => {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="bg-[#B8F500] text-[#0F172A] text-[10px] sm:text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5" /> ayeT-Studios Offerwall
+                  <Sparkles className="w-3.5 h-3.5" /> Swift Earn Tasks
                 </span>
                 <span className="bg-[#6C2BD9]/40 text-[#B8F500] text-[10px] sm:text-xs font-bold px-3 py-1 rounded-full border border-[#6C2BD9]">
-                  Verified S2S Callback Engine
+                  Verified Reward Engine
                 </span>
               </div>
 
@@ -91,7 +83,7 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet }) => {
                 className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-                <span>Refresh Offers & Balance</span>
+                <span>Refresh Tasks</span>
               </button>
             </div>
 
@@ -100,168 +92,161 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet }) => {
             </h1>
 
             <p className="text-xs sm:text-sm text-zinc-300 max-w-2xl leading-relaxed">
-              Complete available sponsor offers, tasks, and surveys powered by ayeT Studios.
-              When an advertiser verifies your task completion, ayeT issues a secure server-to-server callback that instantly credits your wallet.
+              Complete verified activities, surveys, and partner tasks to earn points credited directly to your Swift Earn wallet.
             </p>
 
-            <div className="flex flex-wrap items-center gap-4 pt-2 text-xs text-zinc-400 border-t border-zinc-800">
-              <span className="flex items-center gap-1.5 font-semibold text-zinc-300">
-                <ShieldCheck className="w-4 h-4 text-[#B8F500]" />
-                HMAC SHA-256 Postback Security
-              </span>
-              <span className="flex items-center gap-1.5 font-semibold text-zinc-300">
-                <CheckCircle2 className="w-4 h-4 text-[#B8F500]" />
-                Idempotent Wallet Crediting
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Notice */}
-        {notice && (
-          <div className="bg-purple-50 border border-purple-200 text-[#6C2BD9] rounded-2xl p-4 text-xs font-semibold flex items-center justify-between gap-3 shadow-xs">
-            <div className="flex items-center gap-2">
-              <Gift className="w-4 h-4 text-[#6C2BD9] shrink-0" />
-              <span>{notice}</span>
-            </div>
-            <button
-              onClick={() => setNotice(null)}
-              className="text-xs text-purple-700 hover:text-purple-900 font-bold underline shrink-0 cursor-pointer"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        {/* Full Offerwall Launch Banner if Available */}
-        {offerwallUrl && (
-          <div className="bg-white rounded-2xl p-5 border border-purple-100 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="space-y-1 text-center sm:text-left">
-              <h2 className="text-sm sm:text-base font-extrabold text-zinc-900 flex items-center justify-center sm:justify-start gap-1.5">
-                <Layers3 className="w-4 h-4 text-[#6C2BD9]" />
-                <span>Open Full ayeT Offerwall Marketplace</span>
-              </h2>
-              <p className="text-xs text-zinc-500">
-                Browse hundreds of high-paying advertiser tasks, mobile games, and market research surveys.
-              </p>
-            </div>
-            <button
-              onClick={() => handleStartOffer(offerwallUrl, 'ayeT Offerwall Marketplace')}
-              className="px-5 py-2.5 rounded-xl bg-[#6C2BD9] hover:bg-[#5821B0] text-white font-extrabold text-xs shadow-sm transition-all flex items-center gap-2 shrink-0 cursor-pointer"
-            >
-              <span>Launch Offerwall</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
-
-        {/* Category Filters Bar */}
-        <div className="flex items-center justify-between gap-3 overflow-x-auto pb-2 scrollbar-none">
-          <div className="flex items-center gap-2 shrink-0">
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                  selectedCategory === cat.id
-                    ? 'bg-[#6C2BD9] text-white shadow-md'
-                    : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="text-xs font-bold text-zinc-500 hidden sm:block">
-            Showing {filteredOffers.length} available offers
-          </div>
-        </div>
-
-        {/* Offers Grid */}
-        {loading ? (
-          <div className="py-20 text-center text-sm font-bold text-zinc-400 flex flex-col items-center gap-3">
-            <RefreshCw className="w-6 h-6 animate-spin text-[#6C2BD9]" />
-            <span>Fetching available ayeT offers...</span>
-          </div>
-        ) : filteredOffers.length === 0 ? (
-          <div className="bg-white rounded-3xl p-10 sm:p-12 text-center border border-zinc-200 space-y-4 max-w-xl mx-auto">
-            <div className="w-14 h-14 rounded-2xl bg-purple-50 text-[#6C2BD9] flex items-center justify-center mx-auto">
-              <Layers className="w-7 h-7" />
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-base font-extrabold text-zinc-900">
-                {isConfigured ? 'No active offers in this view' : 'ayeT Offerwall Currently Unavailable'}
-              </h3>
-              <p className="text-xs text-zinc-500 leading-relaxed">
-                {message ||
-                  'No offers match the current selection. You can launch the full offerwall marketplace above or check back shortly as advertisers refresh offer inventory.'}
-              </p>
-            </div>
-
-            {offerwallUrl && (
-              <button
-                onClick={() => handleStartOffer(offerwallUrl, 'ayeT Offerwall Marketplace')}
-                className="px-6 py-3 rounded-xl bg-[#6C2BD9] hover:bg-[#5821B0] text-white font-extrabold text-xs shadow-md transition-all inline-flex items-center gap-2 cursor-pointer"
-              >
-                <span>Launch ayeT Offerwall Marketplace</span>
-                <ExternalLink className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredOffers.map((offer) => (
-              <div
-                key={offer.id}
-                className="bg-white rounded-3xl p-6 border border-zinc-200 hover:border-[#6C2BD9]/40 shadow-xs hover:shadow-lg transition-all flex flex-col justify-between group relative overflow-hidden"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className="bg-purple-100 text-[#6C2BD9] text-[11px] font-extrabold px-3 py-1 rounded-lg flex items-center gap-1.5 uppercase tracking-wide">
-                      <span>{offer.provider || 'ayeT-Studios'}</span>
-                    </span>
-
-                    <div className="bg-[#B8F500] text-[#0F172A] font-black text-xs px-3 py-1 rounded-full shadow-xs flex items-center gap-1">
-                      <Award className="w-3.5 h-3.5" />
-                      <span>+₦{offer.reward_amount.toFixed(2)}</span>
-                    </div>
-                  </div>
-
-                  <h3 className="text-base font-extrabold text-zinc-900 group-hover:text-[#6C2BD9] transition-colors line-clamp-2">
-                    {offer.title}
-                  </h3>
-
-                  <p className="text-xs text-zinc-600 mt-2 leading-relaxed line-clamp-3">
-                    {offer.description}
-                  </p>
-
-                  {offer.instructions && (
-                    <div className="mt-3 p-2.5 rounded-xl bg-zinc-50 border border-zinc-100 text-[11px] text-zinc-500 leading-snug">
-                      <span className="font-bold text-zinc-700">Requirement: </span>
-                      {offer.instructions}
-                    </div>
-                  )}
+            {/* Quick Wallet Bar */}
+            {wallet && (
+              <div className="pt-2 flex flex-wrap items-center gap-4 text-xs">
+                <div className="bg-zinc-800/80 px-3.5 py-1.5 rounded-xl border border-zinc-700/60 flex items-center gap-2">
+                  <span className="text-zinc-400">Available Balance:</span>
+                  <span className="font-extrabold text-[#B8F500] text-sm">
+                    ₦{wallet.available_balance.toFixed(2)}
+                  </span>
                 </div>
-
-                <div className="mt-6 pt-4 border-t border-zinc-100 space-y-3">
-                  <div className="flex items-center justify-between text-xs text-zinc-500">
-                    <span>Estimated time: ~{offer.estimated_minutes || 5} mins</span>
-                    <span className="font-bold text-[#6C2BD9]">Verified S2S</span>
-                  </div>
-
-                  <button
-                    onClick={() => handleStartOffer(offer.tracking_link || offerwallUrl || '#', offer.title)}
-                    className="w-full py-2.5 rounded-xl bg-[#6C2BD9] hover:bg-[#5821B0] text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <span>Complete Offer</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </button>
+                <div className="bg-zinc-800/80 px-3.5 py-1.5 rounded-xl border border-zinc-700/60 flex items-center gap-2">
+                  <span className="text-zinc-400">Total Earned:</span>
+                  <span className="font-extrabold text-white text-sm">
+                    ₦{wallet.total_earned.toFixed(2)}
+                  </span>
                 </div>
               </div>
-            ))}
+            )}
+          </div>
+        </div>
+
+        {/* Categories Bar */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.id)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                selectedCategory === cat.id
+                  ? 'bg-[#6C2BD9] text-white shadow-md'
+                  : 'bg-white text-zinc-600 hover:text-zinc-900 border border-zinc-200'
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Opportunity List */}
+        {loading ? (
+          <div className="py-16 text-center space-y-3">
+            <div className="w-10 h-10 border-3 border-[#6C2BD9] border-t-[#B8F500] rounded-full animate-spin mx-auto"></div>
+            <p className="text-sm font-bold text-zinc-500">Loading available tasks...</p>
+          </div>
+        ) : filteredOpportunities.length === 0 ? (
+          <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-zinc-200 space-y-4 max-w-lg mx-auto">
+            <div className="w-16 h-16 rounded-2xl bg-purple-50 text-[#6C2BD9] flex items-center justify-center mx-auto">
+              <Award className="w-8 h-8" />
+            </div>
+            <div>
+              <h3 className="text-base font-extrabold text-zinc-900">No active tasks in this view</h3>
+              <p className="text-xs text-zinc-500 mt-1 max-w-xs mx-auto leading-relaxed">
+                Check back shortly as new reward opportunities are refreshed throughout the day.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {filteredOpportunities.map((opp) => {
+              const cap = opp.daily_limit || opp.daily_cap || 10;
+              const count = dailyCounts[opp.id] || 0;
+              const isLimitReached = count >= cap;
+              const durationSecs = opp.estimated_seconds || opp.estimated_duration || 30;
+
+              return (
+                <div
+                  key={opp.id}
+                  className={`bg-white rounded-3xl p-6 border transition-all flex flex-col justify-between ${
+                    isLimitReached
+                      ? 'border-zinc-200 opacity-60 bg-zinc-50/50'
+                      : 'border-zinc-200/80 shadow-xs hover:shadow-lg hover:border-purple-200'
+                  }`}
+                >
+                  <div>
+                    {/* Header: Category Badge & Reward Amount */}
+                    <div className="flex items-center justify-between gap-2 mb-4">
+                      <span className="bg-purple-100 text-[#6C2BD9] text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+                        {opp.category || 'Task'}
+                      </span>
+                      <span className="text-base font-black text-[#6C2BD9]">
+                        +₦{(opp.reward_amount || opp.reward_points || 10).toFixed(2)}
+                      </span>
+                    </div>
+
+                    <h3 className="text-base font-bold text-zinc-900">{opp.title || opp.name}</h3>
+                    <p className="text-xs text-zinc-500 mt-2 leading-relaxed line-clamp-3">
+                      {opp.description}
+                    </p>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-zinc-100 space-y-3">
+                    <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-zinc-400" />
+                        <span>~{durationSecs}s</span>
+                      </span>
+                      <span className="font-mono">
+                        Daily: {count}/{cap}
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        if (!isLimitReached && onStartRewardOpportunity) {
+                          onStartRewardOpportunity(opp);
+                        }
+                      }}
+                      disabled={isLimitReached}
+                      className={`w-full py-2.5 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                        isLimitReached
+                          ? 'bg-zinc-200 text-zinc-400 cursor-not-allowed'
+                          : 'bg-[#6C2BD9] hover:bg-[#5821B0] text-white shadow-md shadow-[#6C2BD9]/20'
+                      }`}
+                    >
+                      {isLimitReached ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span>Daily Cap Reached</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3.5 h-3.5 fill-white" />
+                          <span>Start Task</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
+
+        {/* Verification Guarantee Footer */}
+        <div className="bg-white rounded-2xl p-5 border border-zinc-200/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-100 text-[#6C2BD9] flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="font-bold text-zinc-900">Swift Earn Security & Anti-Fraud Protection</p>
+              <p className="text-zinc-500 text-[11px]">
+                Each reward is cryptographically tracked and recorded to the immutable ledger upon verified completion.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-full text-[10px]">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Instant Credit
+            </span>
+          </div>
+        </div>
+
       </div>
     </div>
   );

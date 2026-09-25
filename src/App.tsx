@@ -3,7 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Header } from './components/common/Header';
 import { BottomNav } from './components/common/BottomNav';
 import { NotificationModal } from './components/common/NotificationModal';
-import { AdExperienceModal } from './components/rewards/AdExperienceModal';
+import { RewardSessionModal } from './components/rewards/RewardSessionModal';
 
 import { LandingPage } from './pages/LandingPage';
 import { SignUpPage } from './pages/SignUpPage';
@@ -24,7 +24,7 @@ const MainAppContent: React.FC = () => {
   const { user, isLoading, isPasswordRecovery } = useAuth();
   const [currentTab, setCurrentTab] = useState<string>('landing');
   const [initialRefCode, setInitialRefCode] = useState<string>('');
-  const [activeAdOpportunity, setActiveAdOpportunity] = useState<RewardOpportunity | null>(null);
+  const [activeRewardOpportunity, setActiveRewardOpportunity] = useState<RewardOpportunity | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   // Check URL query parameters for referral links on mount
@@ -84,7 +84,7 @@ const MainAppContent: React.FC = () => {
       setCurrentTab('login');
       return;
     }
-    setActiveAdOpportunity(opportunity);
+    setActiveRewardOpportunity(opportunity);
   };
 
   const handleRewardClaimed = () => {
@@ -117,7 +117,13 @@ const MainAppContent: React.FC = () => {
           />
         );
       case 'earn':
-        return <EarnPage key={earnRefreshKey} onRefreshWallet={() => setEarnRefreshKey((prev) => prev + 1)} />;
+        return (
+          <EarnPage
+            key={earnRefreshKey}
+            onRefreshWallet={() => setEarnRefreshKey((prev) => prev + 1)}
+            onStartRewardOpportunity={handleStartReward}
+          />
+        );
       case 'wallet':
         return <WalletPage onNavigate={handleNavigate} />;
       case 'withdraw':
@@ -191,11 +197,11 @@ const MainAppContent: React.FC = () => {
         }}
       />
 
-      {/* 5. Rewarded Ad Experience Modal */}
-      {activeAdOpportunity && (
-        <AdExperienceModal
-          opportunity={activeAdOpportunity}
-          onClose={() => setActiveAdOpportunity(null)}
+      {/* 5. Reward Session Modal */}
+      {activeRewardOpportunity && (
+        <RewardSessionModal
+          opportunity={activeRewardOpportunity}
+          onClose={() => setActiveRewardOpportunity(null)}
           onRewardClaimed={handleRewardClaimed}
         />
       )}

@@ -16,7 +16,6 @@ import {
   AuditLog,
   NotificationItem,
   SystemConfig,
-  AyetConversion,
 } from './types.js';
 
 interface DatabaseSchema {
@@ -34,7 +33,6 @@ interface DatabaseSchema {
   audit_logs: AuditLog[];
   notifications: NotificationItem[];
   config: SystemConfig;
-  ayet_conversions?: AyetConversion[];
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -249,6 +247,82 @@ function getInitialSeedData(): DatabaseSchema {
         created_at: new Date(Date.now() - 15 * 86400000).toISOString(),
         updated_at: new Date().toISOString(),
       },
+      {
+        id: 'opp_task_survey_01',
+        title: 'Partner Opinion Survey',
+        name: 'Partner Opinion Survey',
+        description: 'Complete a verified partner survey to share consumer feedback and earn points.',
+        category: 'survey',
+        reward_points: 35.0,
+        reward_amount: 35.0,
+        estimated_seconds: 60,
+        estimated_duration: 60,
+        provider: 'SwiftEarnInternal',
+        is_demo: false,
+        active: true,
+        status: 'active',
+        daily_cap: 5,
+        daily_limit: 5,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'opp_task_eval_02',
+        title: 'Product Experience Review',
+        name: 'Product Experience Review',
+        description: 'Evaluate brand interactive features and submit verified product feedback.',
+        category: 'sponsored_task',
+        reward_points: 25.0,
+        reward_amount: 25.0,
+        estimated_seconds: 45,
+        estimated_duration: 45,
+        provider: 'SwiftEarnInternal',
+        is_demo: false,
+        active: true,
+        status: 'active',
+        daily_cap: 5,
+        daily_limit: 5,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'opp_task_market_03',
+        title: 'Market Insights Activity',
+        name: 'Market Insights Activity',
+        description: 'Participate in a brand consumer trend activity for high-yield reward points.',
+        category: 'app_trial',
+        reward_points: 50.0,
+        reward_amount: 50.0,
+        estimated_seconds: 90,
+        estimated_duration: 90,
+        provider: 'SwiftEarnInternal',
+        is_demo: false,
+        active: true,
+        status: 'active',
+        daily_cap: 3,
+        daily_limit: 3,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'opp_task_daily_04',
+        title: 'Daily Engagement Task',
+        name: 'Daily Engagement Task',
+        description: 'Quick daily user verification and engagement activity for consistent earnings.',
+        category: 'sponsored_task',
+        reward_points: 15.0,
+        reward_amount: 15.0,
+        estimated_seconds: 30,
+        estimated_duration: 30,
+        provider: 'SwiftEarnInternal',
+        is_demo: false,
+        active: true,
+        status: 'active',
+        daily_cap: 10,
+        daily_limit: 10,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
     ],
     reward_sessions: [],
     reward_events: [],
@@ -425,7 +499,7 @@ function getInitialSeedData(): DatabaseSchema {
       supported_payment_methods: ['bank_transfer', 'opay', 'palmpay', 'kuda', 'crypto'],
       maximum_daily_rewards: 30,
       referral_bonus_amount: 50.0,
-      allowed_providers: ['SwiftEarnCompliantNetwork', 'GoogleAdMobSSV', 'UnityAdsRewarded'],
+      allowed_providers: ['SwiftEarnCompliantNetwork', 'UnityAdsRewarded'],
       demo_mode: true,
       public_stats: {
         users_count: '10K+',
@@ -451,7 +525,6 @@ class DatabaseManager {
       if (fs.existsSync(DATA_FILE)) {
         const raw = fs.readFileSync(DATA_FILE, 'utf-8');
         const data = JSON.parse(raw);
-        data.ayet_conversions = data.ayet_conversions || [];
         return data;
       }
     } catch (e) {
@@ -1119,247 +1192,6 @@ class DatabaseManager {
       transactionReference: reference,
       message: 'Reward successfully verified and credited.',
     };
-  }
-
-  /**
-   * Process Server-to-Server (S2S) conversion or chargeback postback from ayeT-Studios
-   */
-  processAyetCallback(params: {
-    transactionId: string;
-    externalIdentifier: string;
-    payoutUsd?: number;
-    currencyAmount?: number;
-    isChargeback?: boolean;
-    offerId?: string;
-    offerName?: string;
-    eventName?: string;
-    taskUuid?: string;
-    placementIdentifier?: string;
-    adslotId?: string;
-    customParams?: Record<string, any>;
-    ipAddress?: string;
-  }): {
-    success: boolean;
-    message: string;
-    pointsEarned?: number;
-    deductedAmount?: number;
-    newBalance?: number;
-    transactionId: string;
-    userId?: string;
-  } {
-    const user = this.findUserById(params.externalIdentifier) || this.findUserByEmail(params.externalIdentifier);
-    if (!user) {
-      this.logFraudEvent(undefined, 60, 'ayeT Callback: User not found', {
-        externalIdentifier: params.externalIdentifier,
-        transactionId: params.transactionId,
-        ip: params.ipAddress,
-      });
-      throw new Error(`User not found for external_identifier: ${params.externalIdentifier}`);
-    }
-
-    if (params.isChargeback) {
-      const cbIdempotencyKey = `idemp_ayet_cb_${params.transactionId}`;
-      const existingCb = this.db.ledger_entries.find((e) => e.idempotency_key === cbIdempotencyKey);
-
-      if (existingCb) {
-        return {
-          success: true,
-          message: 'Chargeback callback already processed (idempotent)',
-          transactionId: params.transactionId,
-          userId: user.id,
-        };
-      }
-
-      // Determine deduction amount (matching original credit or calculated amount)
-      const origTxKey = `idemp_ayet_tx_${params.transactionId}`;
-      const origEntry = this.db.ledger_entries.find((e) => e.idempotency_key === origTxKey);
-
-      let deductAmount = 10;
-      if (origEntry) {
-        deductAmount = Math.abs(origEntry.amount);
-      } else if (params.currencyAmount && params.currencyAmount > 0) {
-        deductAmount = Math.round(params.currencyAmount * 100) / 100;
-      } else if (params.payoutUsd && params.payoutUsd > 0) {
-        deductAmount = Math.round(params.payoutUsd * 1500 * 100) / 100;
-      }
-
-      const wallet = this.getWallet(user.id);
-      const newBalance = Math.max(0, Math.round((wallet.available_balance - deductAmount) * 100) / 100);
-
-      wallet.available_balance = newBalance;
-      wallet.updated_at = new Date().toISOString();
-
-      const cbEntry: LedgerEntry = {
-        id: `ledg_${crypto.randomBytes(8).toString('hex')}`,
-        user_id: user.id,
-        entry_type: 'admin_adjustment',
-        amount: -Math.abs(deductAmount),
-        running_balance: newBalance,
-        status: 'confirmed',
-        reference: `AYET-CB-${params.transactionId}`,
-        description: `ayeT-Studios chargeback reversal: ${params.offerName || params.offerId || params.transactionId}`,
-        idempotency_key: cbIdempotencyKey,
-        created_at: new Date().toISOString(),
-      };
-
-      this.db.ledger_entries.push(cbEntry);
-
-      this.recordFraudEvent({
-        userId: user.id,
-        riskScore: 65,
-        flagReason: `ayeT-Studios conversion reversal / chargeback (Tx: ${params.transactionId})`,
-        details: { transaction_id: params.transactionId, deductAmount, offerName: params.offerName, offerId: params.offerId },
-      });
-
-      this.addNotification({
-        user_id: user.id,
-        title: 'Reward Reversal (Chargeback)',
-        message: `A reward of ₦${deductAmount.toFixed(2)} was reversed by sponsor ayeT-Studios (Tx: ${params.transactionId}).`,
-        type: 'system',
-      });
-
-      this.addAuditLog({
-        admin_id: 'system_ayet_s2s',
-        action: 'AYET_CHARGEBACK_PROCESSED',
-        target_resource: 'wallets',
-        target_id: user.id,
-        details: { transaction_id: params.transactionId, deductAmount, externalIdentifier: params.externalIdentifier },
-        ip_address: params.ipAddress,
-      });
-
-      // Record / update conversion record
-      if (!this.db.ayet_conversions) this.db.ayet_conversions = [];
-      const convIdx = this.db.ayet_conversions.findIndex((c) => c.transaction_id === params.transactionId);
-      if (convIdx !== -1) {
-        this.db.ayet_conversions[convIdx].status = 'reversed';
-        this.db.ayet_conversions[convIdx].is_chargeback = true;
-        this.db.ayet_conversions[convIdx].reversed_at = new Date().toISOString();
-      } else {
-        this.db.ayet_conversions.push({
-          id: `ayet_conv_${crypto.randomBytes(8).toString('hex')}`,
-          transaction_id: params.transactionId,
-          external_identifier: params.externalIdentifier,
-          user_id: user.id,
-          offer_id: params.offerId,
-          offer_name: params.offerName,
-          payout_usd: params.payoutUsd,
-          currency_amount: params.currencyAmount,
-          reward_amount: deductAmount,
-          currency: 'NGN',
-          status: 'reversed',
-          is_chargeback: true,
-          created_at: new Date().toISOString(),
-          processed_at: new Date().toISOString(),
-          reversed_at: new Date().toISOString(),
-        });
-      }
-
-      this.persist();
-
-      return {
-        success: true,
-        message: 'Chargeback successfully recorded',
-        transactionId: params.transactionId,
-        userId: user.id,
-        deductedAmount: deductAmount,
-        newBalance,
-      };
-    }
-
-    // Positive Conversion
-    const txIdempotencyKey = `idemp_ayet_tx_${params.transactionId}`;
-    const existingTx = this.db.ledger_entries.find((e) => e.idempotency_key === txIdempotencyKey);
-
-    if (existingTx) {
-      const wallet = this.getWallet(user.id);
-      return {
-        success: true,
-        message: 'Callback already processed (idempotent duplicate request)',
-        transactionId: params.transactionId,
-        userId: user.id,
-        pointsEarned: existingTx.amount,
-        newBalance: wallet.available_balance,
-      };
-    }
-
-    // Calculate reward amount
-    let creditAmount = 10;
-    if (params.currencyAmount && params.currencyAmount > 0) {
-      creditAmount = Math.round(params.currencyAmount * 100) / 100;
-    } else if (params.payoutUsd && params.payoutUsd > 0) {
-      creditAmount = Math.round(params.payoutUsd * 1500 * 100) / 100;
-    }
-
-    const creditRes = this.creditReward({
-      userId: user.id,
-      amount: creditAmount,
-      reference: `AYET-TX-${params.transactionId}`,
-      description: `ayeT-Studios: ${params.offerName || params.eventName || 'Completed offerwall task'}`,
-      idempotencyKey: txIdempotencyKey,
-    });
-
-    this.addAuditLog({
-      admin_id: 'system_ayet_s2s',
-      action: 'AYET_CONVERSION_SUCCESS',
-      target_resource: 'wallets',
-      target_id: user.id,
-      details: {
-        transaction_id: params.transactionId,
-        creditAmount,
-        payout_usd: params.payoutUsd,
-        currency_amount: params.currencyAmount,
-        external_identifier: params.externalIdentifier,
-        placement_identifier: params.placementIdentifier,
-        adslot_id: params.adslotId,
-        offer_id: params.offerId,
-        offer_name: params.offerName,
-        event_name: params.eventName,
-        task_uuid: params.taskUuid,
-        customParams: params.customParams,
-      },
-      ip_address: params.ipAddress,
-    });
-
-    if (!this.db.ayet_conversions) this.db.ayet_conversions = [];
-    const existingConv = this.db.ayet_conversions.find((c) => c.transaction_id === params.transactionId);
-    if (!existingConv) {
-      this.db.ayet_conversions.push({
-        id: `ayet_conv_${crypto.randomBytes(8).toString('hex')}`,
-        transaction_id: params.transactionId,
-        external_identifier: params.externalIdentifier,
-        user_id: user.id,
-        offer_id: params.offerId,
-        offer_name: params.offerName,
-        payout_usd: params.payoutUsd,
-        currency_amount: params.currencyAmount,
-        reward_amount: creditAmount,
-        currency: 'NGN',
-        status: 'confirmed',
-        is_chargeback: false,
-        created_at: new Date().toISOString(),
-        processed_at: new Date().toISOString(),
-      });
-    }
-
-    this.persist();
-
-    return {
-      success: true,
-      message: 'Conversion successfully verified and credited',
-      transactionId: params.transactionId,
-      userId: user.id,
-      pointsEarned: creditAmount,
-      newBalance: creditRes.wallet.available_balance,
-    };
-  }
-
-  getAyetConversions(): AyetConversion[] {
-    if (!this.db.ayet_conversions) {
-      this.db.ayet_conversions = [];
-    }
-    return [...this.db.ayet_conversions].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
   }
 
   getAllRewardSessions(): RewardSession[] {

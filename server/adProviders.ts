@@ -90,28 +90,6 @@ export class SwiftEarnCompliantProvider implements IRewardedAdProvider {
 }
 
 /**
- * AdMob SSV (Server-Side Verification) Adapter Architecture
- */
-export class AdMobRewardedAdapter implements IRewardedAdProvider {
-  name = 'GoogleAdMobSSV';
-
-  generateToken(sessionInit: ProviderSessionInit): string {
-    const data = `admob:${sessionInit.sessionId}:${sessionInit.userId}`;
-    return crypto.createHmac('sha256', SERVER_SECRET).update(data).digest('hex') + '.' + Date.now();
-  }
-
-  async verifyCompletion(token: string, sessionInit: ProviderSessionInit, elapsedSeconds: number): Promise<ProviderValidationResult> {
-    if (elapsedSeconds < sessionInit.estimatedSeconds - 2) {
-      return { valid: false, reason: 'Premature ad termination reported by AdMob adapter', fraudFlag: true };
-    }
-    return {
-      valid: true,
-      providerTransactionId: `ADMOB-SSV-${crypto.randomBytes(8).toString('hex').toUpperCase()}`,
-    };
-  }
-}
-
-/**
  * Unity Ads S2S Callback Adapter
  */
 export class UnityAdsRewardedAdapter implements IRewardedAdProvider {
@@ -135,7 +113,6 @@ export class UnityAdsRewardedAdapter implements IRewardedAdProvider {
 
 export const providerRegistry: Record<string, IRewardedAdProvider> = {
   SwiftEarnCompliantNetwork: new SwiftEarnCompliantProvider(),
-  GoogleAdMobSSV: new AdMobRewardedAdapter(),
   UnityAdsRewarded: new UnityAdsRewardedAdapter(),
 };
 
