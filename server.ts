@@ -17,7 +17,20 @@ import {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  
+  // Parse port from command line arguments (--port 3000) or environment
+  const args = process.argv.slice(2);
+  let portArg: number | null = null;
+  for (let i = 0; i < args.length; i++) {
+    if ((args[i] === '--port' || args[i] === '-p') && args[i + 1]) {
+      const parsed = parseInt(args[i + 1], 10);
+      if (!isNaN(parsed)) {
+        portArg = parsed;
+        break;
+      }
+    }
+  }
+  const PORT = portArg || Number(process.env.APP_PORT) || 3000;
 
   app.use(
     express.json({
