@@ -81,154 +81,6 @@ async function request<T>(url: string, options: RequestInit = {}, isAdmin = fals
   }
 }
 
-// Built-in verified partner opportunities for direct engagement
-const FALLBACK_OPPORTUNITIES: RewardOpportunity[] = [
-  {
-    id: 'opp_demo_vid_01',
-    name: 'Demo Rewarded Video',
-    title: 'Demo Rewarded Video',
-    provider: 'Demo',
-    category: 'video',
-    reward_amount: 10,
-    reward_points: 10,
-    estimated_duration: 30,
-    estimated_seconds: 30,
-    daily_limit: 10,
-    daily_cap: 10,
-    status: 'active',
-    description: 'Simulate watching a 30-second rewarded sponsor video to completion.',
-    is_demo: true,
-    active: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'opp_demo_vid_02',
-    name: 'Demo Quick Clip',
-    title: 'Demo Quick Clip',
-    provider: 'Demo',
-    category: 'video',
-    reward_amount: 5,
-    reward_points: 5,
-    estimated_duration: 15,
-    estimated_seconds: 15,
-    daily_limit: 15,
-    daily_cap: 15,
-    status: 'active',
-    description: 'Watch a fast 15-second sponsor demonstration clip for rapid reward testing.',
-    is_demo: true,
-    active: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'opp_demo_survey_01',
-    name: 'Demo Interactive Survey',
-    title: 'Demo Interactive Survey',
-    provider: 'Demo',
-    category: 'survey',
-    reward_amount: 15,
-    reward_points: 15,
-    estimated_duration: 45,
-    estimated_seconds: 45,
-    daily_limit: 5,
-    daily_cap: 5,
-    status: 'active',
-    description: 'Simulate completing an interactive brand feedback survey for bonus points.',
-    is_demo: true,
-    active: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'opp_demo_app_01',
-    name: 'Demo App Engagement',
-    title: 'Demo App Engagement',
-    provider: 'Demo',
-    category: 'app_trial',
-    reward_amount: 20,
-    reward_points: 20,
-    estimated_duration: 60,
-    estimated_seconds: 60,
-    daily_limit: 5,
-    daily_cap: 5,
-    status: 'active',
-    description: 'Simulate testing a partner mobile product and claim verified test points.',
-    is_demo: true,
-    active: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'opp_task_survey_01',
-    name: 'Partner Opinion Survey',
-    title: 'Partner Opinion Survey',
-    provider: 'SwiftEarnInternal',
-    category: 'survey',
-    reward_amount: 35,
-    reward_points: 35,
-    estimated_duration: 60,
-    estimated_seconds: 60,
-    daily_limit: 5,
-    daily_cap: 5,
-    status: 'active',
-    description: 'Complete a verified partner survey to share consumer feedback and earn points.',
-    is_demo: false,
-    active: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'opp_task_eval_02',
-    name: 'Product Experience Review',
-    title: 'Product Experience Review',
-    provider: 'SwiftEarnInternal',
-    category: 'sponsored_task',
-    reward_amount: 25,
-    reward_points: 25,
-    estimated_duration: 45,
-    estimated_seconds: 45,
-    daily_limit: 5,
-    daily_cap: 5,
-    status: 'active',
-    description: 'Evaluate brand interactive features and submit verified product feedback.',
-    is_demo: false,
-    active: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'opp_task_market_03',
-    name: 'Market Insights Activity',
-    title: 'Market Insights Activity',
-    provider: 'SwiftEarnInternal',
-    category: 'app_trial',
-    reward_amount: 50,
-    reward_points: 50,
-    estimated_duration: 90,
-    estimated_seconds: 90,
-    daily_limit: 3,
-    daily_cap: 3,
-    status: 'active',
-    description: 'Participate in a brand consumer trend activity for high-yield reward points.',
-    is_demo: false,
-    active: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'opp_task_daily_04',
-    name: 'Daily Engagement Task',
-    title: 'Daily Engagement Task',
-    provider: 'SwiftEarnInternal',
-    category: 'sponsored_task',
-    reward_amount: 15,
-    reward_points: 15,
-    estimated_duration: 30,
-    estimated_seconds: 30,
-    daily_limit: 10,
-    daily_cap: 10,
-    status: 'active',
-    description: 'Quick daily user verification and engagement activity for consistent earnings.',
-    is_demo: false,
-    active: true,
-    created_at: new Date().toISOString(),
-  },
-];
-
 export const api = {
   // Public Stats
   getPublicStats: async (): Promise<PublicStats> => {
@@ -302,17 +154,17 @@ export const api = {
       try {
         const opps = await supabaseDb.getRewardOpportunities();
         if (opps && opps.length > 0) {
-          return { opportunities: opps };
+          return { opportunities: opps.filter((o) => o.active && !o.is_demo) };
         }
       } catch (err) {
-        console.warn('Notice: loading Supabase reward opportunities, falling back:', err);
+        console.warn('Notice: loading Supabase reward opportunities:', err);
       }
     }
     try {
       const res = await request<{ opportunities: RewardOpportunity[] }>('/api/rewards/opportunities');
-      return res;
+      return res || { opportunities: [] };
     } catch {
-      return { opportunities: FALLBACK_OPPORTUNITIES };
+      return { opportunities: [] };
     }
   },
 
@@ -359,31 +211,13 @@ export const api = {
       let opp: RewardOpportunity | undefined;
       try {
         const dbOpps = await supabaseDb.getRewardOpportunities();
-        opp = dbOpps.find((o) => o.id === opportunityId);
+        opp = dbOpps.find((o) => o.id === opportunityId && o.active && !o.is_demo);
       } catch (err) {
         console.warn('Notice fetching Supabase opportunities for session:', err);
       }
 
       if (!opp) {
-        opp = FALLBACK_OPPORTUNITIES.find((o) => o.id === opportunityId) || {
-          id: opportunityId || 'opp_demo_vid_01',
-          name: 'Demo Rewarded Video',
-          title: 'Demo Rewarded Video',
-          description: 'Watch a 30-second sponsored brand campaign.',
-          category: 'video',
-          provider: 'Demo',
-          reward_points: 10,
-          reward_amount: 10,
-          estimated_seconds: 30,
-          estimated_duration: 30,
-          is_demo: true,
-          active: true,
-          status: 'active',
-          daily_cap: 10,
-          daily_limit: 10,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
+        throw new Error('Reward opportunity not found or inactive');
       }
 
       const rewardAmt = Number(opp.reward_amount || opp.reward_points || 10);
@@ -485,40 +319,21 @@ export const api = {
           }
         }
 
-        // 2. Fallback to lookup by body.opportunityId
+        // 2. Lookup by body.opportunityId
         if (!opp && body.opportunityId) {
           const dbOpps = await supabaseDb.getRewardOpportunities();
-          opp = dbOpps.find((o) => o.id === body.opportunityId);
+          opp = dbOpps.find((o) => o.id === body.opportunityId && o.active && !o.is_demo);
         }
 
         if (!opp) {
-          opp = FALLBACK_OPPORTUNITIES.find((o) => o.id === body.opportunityId) ||
-            FALLBACK_OPPORTUNITIES.find((o) => o.id === 'opp_demo_vid_01') || {
-              id: body.opportunityId || 'opp_demo_vid_01',
-              name: body.title || 'Demo Rewarded Video',
-              title: body.title || 'Demo Rewarded Video',
-              description: 'Watch a 30-second sponsored brand campaign.',
-              category: 'video',
-              provider: body.provider || 'Demo',
-              reward_points: body.amount || 10,
-              reward_amount: body.amount || 10,
-              estimated_seconds: 30,
-              estimated_duration: 30,
-              is_demo: true,
-              active: true,
-              status: 'active',
-              daily_cap: 10,
-              daily_limit: 10,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            };
+          throw new Error('Valid reward opportunity could not be resolved for claim verification');
         }
 
         const authoritativeAmount = Number(
-          opp.reward_amount || opp.reward_points || body.amount || 10
+          opp.reward_amount || opp.reward_points || 10
         );
-        const authoritativeTitle = opp.title || opp.name || body.title || 'Demo Rewarded Video';
-        const authoritativeProvider = opp.provider || body.provider || 'Demo';
+        const authoritativeTitle = opp.title || opp.name || 'Verified Reward Task';
+        const authoritativeProvider = opp.provider || 'SwiftEarnInternal';
 
         const result = await supabaseDb.creditReward(
           sessionId,

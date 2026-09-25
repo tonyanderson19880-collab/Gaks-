@@ -1,62 +1,67 @@
-import React, { useState, useEffect } from 'react';
-import { RefreshCw, Award, Sparkles, ShieldCheck, CheckCircle2, Clock, Play, ArrowRight, Layers3, Flame, Check } from 'lucide-react';
-import { RewardOpportunity } from '../types';
-import { api } from '../api';
+import React, { useState } from 'react';
+import { RefreshCw, Sparkles, ShieldCheck, CheckCircle2, Layers, Check, Info, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { AdsterraBanner } from '../components/common/AdsterraBanner';
 
 interface EarnPageProps {
   onRefreshWallet?: () => void;
-  onStartRewardOpportunity?: (opportunity: RewardOpportunity) => void;
+  onNavigate?: (tab: string) => void;
 }
 
-export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onStartRewardOpportunity }) => {
+export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onNavigate }) => {
   const { wallet, refreshUserData } = useAuth();
-  const [opportunities, setOpportunities] = useState<RewardOpportunity[]>([]);
-  const [dailyCounts, setDailyCounts] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-
-  const fetchOpportunities = async () => {
-    try {
-      setLoading(true);
-      const [oppsRes, countsRes] = await Promise.all([
-        api.getOpportunities(),
-        api.getDailyRewardCounts(),
-      ]);
-      setOpportunities(oppsRes.opportunities || []);
-      setDailyCounts(countsRes.counts || {});
-    } catch (err: any) {
-      console.error('Failed to load reward opportunities:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchOpportunities();
-  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([fetchOpportunities(), refreshUserData()]);
+    await refreshUserData();
     if (onRefreshWallet) onRefreshWallet();
     setTimeout(() => setRefreshing(false), 500);
   };
 
-  const categories = [
-    { id: 'all', label: 'All Tasks' },
-    { id: 'sponsored_task', label: 'Tasks' },
-    { id: 'survey', label: 'Surveys' },
-    { id: 'app_trial', label: 'App Trials' },
-    { id: 'video', label: 'Media' },
+  // Structured upcoming Adsterra format placements (prepared for step-by-step rollout)
+  const upcomingAdsterraFormats = [
+    {
+      id: 'format_160x300',
+      name: '160 × 300 Skyscraper',
+      type: 'Display Banner',
+      description: 'Vertical sidebar advertising unit optimized for desktop and tablet screens.',
+      status: 'Prepared for Activation',
+      provider: 'Adsterra',
+    },
+    {
+      id: 'format_native',
+      name: 'Native Banner',
+      type: 'Native Widget',
+      description: 'Contextual partner recommendation block matching Swift Earn responsive design.',
+      status: 'Prepared for Activation',
+      provider: 'Adsterra',
+    },
+    {
+      id: 'format_social',
+      name: 'Social Bar',
+      type: 'Rich Media',
+      description: 'Non-intrusive interactive tab notification format with high mobile engagement.',
+      status: 'Prepared for Activation',
+      provider: 'Adsterra',
+    },
+    {
+      id: 'format_popunder',
+      name: 'Popunder',
+      type: 'On-Click Media',
+      description: 'Full-tab sponsor destination trigger behind active session browsing.',
+      status: 'Prepared for Activation',
+      provider: 'Adsterra',
+    },
+    {
+      id: 'format_smartlink',
+      name: 'Direct Smartlink',
+      type: 'Direct Route',
+      description: 'Algorithmic traffic monetization URL connecting to highest-yielding partner campaigns.',
+      status: 'Prepared for Activation',
+      provider: 'Adsterra',
+    },
   ];
-
-  const filteredOpportunities = opportunities.filter((opp) => {
-    if (selectedCategory === 'all') return true;
-    return (opp.category || 'sponsored_task').toLowerCase() === selectedCategory;
-  });
 
   return (
     <div className="bg-[#F8FAFC] min-h-screen pb-24 md:pb-12 pt-6 overflow-x-hidden">
@@ -71,10 +76,10 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onStartRewa
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="bg-[#B8F500] text-[#0F172A] text-[10px] sm:text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5" /> Swift Earn Tasks
+                  <Sparkles className="w-3.5 h-3.5" /> Swift Earn Monetization
                 </span>
                 <span className="bg-[#6C2BD9]/40 text-[#B8F500] text-[10px] sm:text-xs font-bold px-3 py-1 rounded-full border border-[#6C2BD9]">
-                  Verified Reward Engine
+                  Adsterra Approved Partner
                 </span>
               </div>
 
@@ -84,19 +89,19 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onStartRewa
                 className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-                <span>Refresh Tasks</span>
+                <span>Refresh Wallet</span>
               </button>
             </div>
 
             <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
-              Earn <span className="text-[#B8F500]">Rewards</span>
+              Partner <span className="text-[#B8F500]">Advertising</span> & Monetization
             </h1>
 
             <p className="text-xs sm:text-sm text-zinc-300 max-w-2xl leading-relaxed">
-              Complete verified activities, surveys, and partner tasks to earn points credited directly to your Swift Earn wallet.
+              Swift Earn is powered by verified digital advertising. Partner monetization sustains the platform&apos;s infrastructure, double-entry ledger, and verified bank payouts. Advertisements do not automatically credit user balances—all wallet rewards are governed by authoritative server-side transactions.
             </p>
 
-            {/* Quick Wallet Bar */}
+            {/* Quick Wallet Bar (Authoritative Data Only) */}
             {wallet && (
               <div className="pt-2 flex flex-wrap items-center gap-4 text-xs">
                 <div className="bg-zinc-800/80 px-3.5 py-1.5 rounded-xl border border-zinc-700/60 flex items-center gap-2">
@@ -111,142 +116,109 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onStartRewa
                     ₦{wallet.total_earned.toFixed(2)}
                   </span>
                 </div>
+                {wallet.total_withdrawn > 0 && (
+                  <div className="bg-zinc-800/80 px-3.5 py-1.5 rounded-xl border border-zinc-700/60 flex items-center gap-2">
+                    <span className="text-zinc-400">Total Withdrawn:</span>
+                    <span className="font-extrabold text-white text-sm">
+                      ₦{wallet.total_withdrawn.toFixed(2)}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
 
-        {/* Categories Bar */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                selectedCategory === cat.id
-                  ? 'bg-[#6C2BD9] text-white shadow-md'
-                  : 'bg-white text-zinc-600 hover:text-zinc-900 border border-zinc-200'
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Opportunity List */}
-        {loading ? (
-          <div className="py-16 text-center space-y-3">
-            <div className="w-10 h-10 border-3 border-[#6C2BD9] border-t-[#B8F500] rounded-full animate-spin mx-auto"></div>
-            <p className="text-sm font-bold text-zinc-500">Loading available tasks...</p>
-          </div>
-        ) : filteredOpportunities.length === 0 ? (
-          <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-zinc-200 space-y-4 max-w-lg mx-auto">
-            <div className="w-16 h-16 rounded-2xl bg-purple-50 text-[#6C2BD9] flex items-center justify-center mx-auto">
-              <Award className="w-8 h-8" />
-            </div>
+        {/* Section 1: Active Monetization Placement */}
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-zinc-200 pb-3">
             <div>
-              <h3 className="text-base font-extrabold text-zinc-900">No active tasks in this view</h3>
-              <p className="text-xs text-zinc-500 mt-1 max-w-xs mx-auto leading-relaxed">
-                Check back shortly as new reward opportunities are refreshed throughout the day.
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <h2 className="text-base sm:text-lg font-extrabold text-zinc-900">
+                  Active Display Monetization
+                </h2>
+              </div>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                Live Adsterra 300 × 250 display banner running on Swift Earn
               </p>
             </div>
+            <span className="text-[11px] font-mono text-zinc-400">
+              Provider: Adsterra
+            </span>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {filteredOpportunities.map((opp) => {
-              const cap = opp.daily_limit || opp.daily_cap || 10;
-              const count = dailyCounts[opp.id] || 0;
-              const isLimitReached = count >= cap;
-              const durationSecs = opp.estimated_seconds || opp.estimated_duration || 30;
 
-              return (
-                <div
-                  key={opp.id}
-                  className={`bg-white rounded-3xl p-6 border transition-all flex flex-col justify-between ${
-                    isLimitReached
-                      ? 'border-zinc-200 opacity-60 bg-zinc-50/50'
-                      : 'border-zinc-200/80 shadow-xs hover:shadow-lg hover:border-purple-200'
-                  }`}
-                >
-                  <div>
-                    {/* Header: Category Badge & Reward Amount */}
-                    <div className="flex items-center justify-between gap-2 mb-4">
-                      <span className="bg-purple-100 text-[#6C2BD9] text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
-                        {opp.category || 'Task'}
-                      </span>
-                      <span className="text-base font-black text-[#6C2BD9]">
-                        +₦{(opp.reward_amount || opp.reward_points || 10).toFixed(2)}
-                      </span>
-                    </div>
+          {/* Adsterra 300x250 Banner Placement */}
+          <AdsterraBanner />
+        </div>
 
-                    <h3 className="text-base font-bold text-zinc-900">{opp.title || opp.name}</h3>
-                    <p className="text-xs text-zinc-500 mt-2 leading-relaxed line-clamp-3">
-                      {opp.description}
-                    </p>
+        {/* Section 2: Prepared Additional Adsterra Formats (Structured for Future Rollout) */}
+        <div className="space-y-4 pt-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-zinc-200 pb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-[#6C2BD9]" />
+                <h2 className="text-base sm:text-lg font-extrabold text-zinc-900">
+                  Monetization Pipeline & Future Formats
+                </h2>
+              </div>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                Scheduled Adsterra ad formats prepared for sequential activation
+              </p>
+            </div>
+            <span className="text-[11px] font-bold text-[#6C2BD9] bg-purple-50 px-2.5 py-1 rounded-full border border-purple-100">
+              One-by-One Rollout Ready
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {upcomingAdsterraFormats.map((slot) => (
+              <div
+                key={slot.id}
+                className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded bg-zinc-100 text-zinc-600">
+                      {slot.type}
+                    </span>
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Lock className="w-3 h-3" />
+                      {slot.status}
+                    </span>
                   </div>
 
-                  <div className="mt-6 pt-4 border-t border-zinc-100 space-y-3">
-                    <div className="flex items-center justify-between text-[11px] text-zinc-400">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                        <span>~{durationSecs}s</span>
-                      </span>
-                      <span className="font-mono">
-                        Daily: {count}/{cap}
-                      </span>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        if (!isLimitReached && onStartRewardOpportunity) {
-                          onStartRewardOpportunity(opp);
-                        }
-                      }}
-                      disabled={isLimitReached}
-                      className={`w-full py-2.5 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                        isLimitReached
-                          ? 'bg-zinc-200 text-zinc-400 cursor-not-allowed'
-                          : 'bg-[#6C2BD9] hover:bg-[#5821B0] text-white shadow-md shadow-[#6C2BD9]/20'
-                      }`}
-                    >
-                      {isLimitReached ? (
-                        <>
-                          <Check className="w-4 h-4" />
-                          <span>Daily Cap Reached</span>
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-3.5 h-3.5 fill-white" />
-                          <span>Start Task</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
+                  <h3 className="text-sm font-bold text-zinc-900">{slot.name}</h3>
+                  <p className="text-xs text-zinc-500 mt-1.5 leading-relaxed">
+                    {slot.description}
+                  </p>
                 </div>
-              );
-            })}
+
+                <div className="mt-4 pt-3 border-t border-zinc-100 flex items-center justify-between text-[11px] text-zinc-400">
+                  <span>Network: {slot.provider}</span>
+                  <span className="font-mono text-zinc-500">Stage: In Pipeline</span>
+                </div>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
 
-        {/* Adsterra 300x250 Monetization Banner */}
-        <AdsterraBanner />
-
-        {/* Verification Guarantee Footer */}
+        {/* Section 3: Platform Security, Anti-Fraud & Reward Integrity Notice */}
         <div className="bg-white rounded-2xl p-5 border border-zinc-200/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-purple-100 text-[#6C2BD9] flex items-center justify-center shrink-0">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <p className="font-bold text-zinc-900">Swift Earn Security & Anti-Fraud Protection</p>
-              <p className="text-zinc-500 text-[11px]">
-                Each reward is cryptographically tracked and recorded to the immutable ledger upon verified completion.
+              <p className="font-bold text-zinc-900">Authoritative Wallet & Financial Integrity Guarantee</p>
+              <p className="text-zinc-500 text-[11px] mt-0.5">
+                Swift Earn maintains strict separation between advertising displays and user ledger entries. No balances are fabricated or generated from ad impressions or clicks.
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-full text-[10px]">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Instant Credit
+              <CheckCircle2 className="w-3.5 h-3.5" /> Real-Money Testing Mode
             </span>
           </div>
         </div>

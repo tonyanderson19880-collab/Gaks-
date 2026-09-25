@@ -61,8 +61,8 @@ export const AdminDashboardPage: React.FC = () => {
     reward_amount: 10,
     estimated_duration: 30,
     daily_limit: 10,
-    provider: 'Demo',
-    category: 'video' as 'video' | 'survey' | 'app_trial' | 'sponsored_task',
+    provider: 'SwiftEarnInternal',
+    category: 'sponsored_task' as 'video' | 'survey' | 'app_trial' | 'sponsored_task',
     status: 'active' as 'active' | 'inactive',
   });
 
@@ -171,8 +171,8 @@ export const AdminDashboardPage: React.FC = () => {
         reward_amount: 10,
         estimated_duration: 30,
         daily_limit: 10,
-        provider: 'Demo',
-        category: 'video',
+        provider: 'SwiftEarnInternal',
+        category: 'sponsored_task',
         status: 'active',
       });
       await fetchAdminData();
@@ -855,7 +855,7 @@ export const AdminDashboardPage: React.FC = () => {
                         <tr key={s.id} className="hover:bg-zinc-800/50">
                           <td className="p-3 font-mono text-[11px] text-zinc-300">{s.id.slice(0, 12)}...</td>
                           <td className="p-3 font-mono text-[11px] text-zinc-400">{s.user_id.slice(0, 8)}...</td>
-                          <td className="p-3 font-medium text-white">{s.opportunity_title || (s as any).opportunity_name || 'Demo Video'}</td>
+                          <td className="p-3 font-medium text-white">{s.opportunity_title || (s as any).opportunity_name || 'Reward Session'}</td>
                           <td className="p-3 font-bold text-[#B8F500]">+{s.reward_amount || (s as any).reward_points} pts</td>
                           <td className="p-3">
                             <span
@@ -1373,7 +1373,7 @@ export const AdminDashboardPage: React.FC = () => {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Demo Rewarded Video"
+                    placeholder="e.g. Verified Partner Survey"
                     value={newOpp.name}
                     onChange={(e) => setNewOpp({ ...newOpp, name: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white text-xs focus:outline-hidden focus:border-[#B8F500]"

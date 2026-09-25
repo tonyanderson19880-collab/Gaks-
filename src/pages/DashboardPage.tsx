@@ -1,31 +1,29 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 import {
   Sparkles,
   ArrowUpRight,
-  Clock,
   CheckCircle2,
-  AlertCircle,
   ArrowRight,
-  TrendingUp,
   Wallet as WalletIcon,
   ChevronRight,
   Zap,
+  ShieldCheck,
+  Layers,
 } from 'lucide-react';
-import { RewardOpportunity, LedgerEntry } from '../types';
+import { LedgerEntry } from '../types';
 import { api } from '../api';
 
 interface DashboardPageProps {
   onNavigate: (tab: string) => void;
-  onStartRewardOpportunity: (opportunity: RewardOpportunity) => void;
+  onStartRewardOpportunity?: (opportunity: any) => void;
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({
   onNavigate,
-  onStartRewardOpportunity,
 }) => {
-  const { user, profile, wallet, refreshUserData } = useAuth();
-  const [opportunities, setOpportunities] = useState<RewardOpportunity[]>([]);
+  const { user, profile, wallet } = useAuth();
   const [recentTransactions, setRecentTransactions] = useState<LedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -33,15 +31,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     const loadDashboardData = async () => {
       try {
         setLoading(true);
-        const [oppsRes, txRes] = await Promise.all([
-          api.getOpportunities(),
-          api.getTransactions(),
-        ]);
-        setOpportunities(oppsRes.opportunities || []);
+        const txRes = await api.getTransactions();
         setRecentTransactions((txRes.transactions || []).slice(0, 5));
       } catch (err: any) {
         if (!err?.message?.includes('Authentication')) {
-          console.warn('Notice: Could not load dashboard data:', err?.message || err);
+          console.warn('Notice: Could not load dashboard transactions:', err?.message || err);
         }
       } finally {
         setLoading(false);
@@ -61,21 +55,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <div>
             <h2 className="text-2xl font-black text-zinc-900 tracking-tight">Member Dashboard</h2>
             <p className="text-sm text-zinc-600 mt-2 leading-relaxed">
-              Log in to access your personal dashboard, track active rewarded opportunities, and manage your payouts.
+              Log in to access your personal dashboard, track verified wallet balances, and manage your payouts.
             </p>
           </div>
           <div className="flex gap-3 justify-center pt-2">
             <button
               id="dashboard-guest-login-btn"
               onClick={() => onNavigate('login')}
-              className="px-5 py-2.5 rounded-xl bg-[#6C2BD9] hover:bg-[#5821B0] text-white font-bold text-sm shadow-xs transition-colors"
+              className="px-5 py-2.5 rounded-xl bg-[#6C2BD9] hover:bg-[#5821B0] text-white font-bold text-sm shadow-xs transition-colors cursor-pointer"
             >
               Sign In
             </button>
             <button
               id="dashboard-guest-signup-btn"
               onClick={() => onNavigate('signup')}
-              className="px-5 py-2.5 rounded-xl bg-[#B8F500] hover:bg-[#A3DC00] text-[#0F172A] font-extrabold text-sm shadow-xs transition-colors"
+              className="px-5 py-2.5 rounded-xl bg-[#B8F500] hover:bg-[#A3DC00] text-[#0F172A] font-extrabold text-sm shadow-xs transition-colors cursor-pointer"
             >
               Create Account
             </button>
@@ -100,6 +94,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               Welcome back, {firstName}
             </h1>
           </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-full flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              Verified Ledger Active
+            </span>
+          </div>
         </div>
 
         {/* Main Balance Card & Metrics */}
@@ -117,20 +117,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   Available Balance
                 </span>
                 <span className="bg-[#B8F500] text-[#0F172A] font-extrabold text-xs px-2.5 py-1 rounded-full flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Confirmed
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Authoritative
                 </span>
               </div>
 
-              {/* Large Readable Number */}
+              {/* Authoritative Balance */}
               <div className="mt-3 text-4xl sm:text-5xl font-black tracking-tight text-white">
                 ₦{wallet?.available_balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
               </div>
               <p className="text-xs text-purple-200 mt-1">
-                Verified rewards ready for withdrawal or accumulation
+                Verified rewards recorded in your double-entry ledger
               </p>
             </div>
 
-            {/* Additional Balances: Pending, Total Earned, Total Withdrawn */}
+            {/* Balances: Pending, Total Earned, Total Withdrawn */}
             <div className="pt-6 border-t border-purple-500/40 mt-6 grid grid-cols-3 gap-2 text-left">
               <div>
                 <span className="text-[11px] font-semibold text-purple-200 block uppercase">
@@ -146,7 +146,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   Total Earned
                 </span>
                 <span className="text-sm sm:text-base font-extrabold text-[#B8F500] mt-0.5 block">
-                  ₦{wallet?.total_earned.toFixed(2) || '0.00'}
+                  ₦{(wallet?.total_earned ?? 0).toFixed(2)}
                 </span>
               </div>
 
@@ -155,7 +155,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   Total Withdrawn
                 </span>
                 <span className="text-sm sm:text-base font-extrabold text-white mt-0.5 block">
-                  ₦{wallet?.total_withdrawn.toFixed(2) || '0.00'}
+                  ₦{(wallet?.total_withdrawn ?? 0).toFixed(2)}
                 </span>
               </div>
             </div>
@@ -177,7 +177,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               <button
                 id="btn-dashboard-withdraw"
                 onClick={() => onNavigate('withdraw')}
-                className="w-full py-3.5 rounded-xl bg-zinc-900 hover:bg-black text-[#B8F500] font-extrabold text-sm transition-colors flex items-center justify-center gap-2"
+                className="w-full py-3.5 rounded-xl bg-zinc-900 hover:bg-black text-[#B8F500] font-extrabold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>Withdraw Rewards</span>
                 <ArrowUpRight className="w-4 h-4" />
@@ -185,7 +185,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               <button
                 id="btn-dashboard-view-wallet"
                 onClick={() => onNavigate('wallet')}
-                className="w-full py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold text-xs transition-colors"
+                className="w-full py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold text-xs transition-colors cursor-pointer"
               >
                 View Transaction Ledger
               </button>
@@ -193,7 +193,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </div>
         </div>
 
-        {/* Large Attractive "Earn Now" CTA Banner */}
+        {/* Explore Partner Monetization Banner */}
         <div
           id="dashboard-earn-now-cta"
           className="bg-zinc-900 text-white rounded-3xl p-6 sm:p-8 border border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-md relative overflow-hidden"
@@ -201,91 +201,128 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <div className="space-y-2 text-center sm:text-left z-10">
             <div className="inline-flex items-center gap-1.5 bg-[#B8F500]/20 text-[#B8F500] text-xs font-bold px-2.5 py-1 rounded-full">
               <Zap className="w-3.5 h-3.5 fill-[#B8F500]" />
-              <span>Instant Verification</span>
+              <span>Partner Monetization</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
-              Ready to claim your next reward?
+              Explore Swift Earn Advertising Hub
             </h2>
-            <p className="text-xs sm:text-sm text-zinc-400 max-w-xl">
-              Complete eligible video streams, surveys, and sponsor trials. No software downloads required.
+            <p className="text-xs sm:text-sm text-zinc-400 max-w-xl leading-relaxed">
+              View active Adsterra 300 × 250 display units and review our advertising monetization pipeline.
             </p>
           </div>
 
-          <button
+          <motion.button
             id="btn-earn-now-main"
+            whileHover={{ scale: 1.02, transition: { type: 'spring', stiffness: 400, damping: 25 } }}
+            whileTap={{ scale: 0.96, transition: { type: 'spring', stiffness: 500, damping: 15 } }}
             onClick={() => onNavigate('earn')}
-            className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-[#B8F500] hover:bg-[#A3DC00] text-[#0F172A] font-black text-base shadow-lg shadow-[#B8F500]/15 transition-all flex items-center justify-center gap-2 shrink-0 group"
+            className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-[#B8F500] hover:bg-[#A3DC00] text-[#0F172A] font-black text-base shadow-lg shadow-[#B8F500]/15 transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer select-none touch-manipulation"
           >
-            <span>Earn Now</span>
-            <ArrowRight className="w-5 h-5 text-[#0F172A] group-hover:translate-x-1 transition-transform" />
-          </button>
+            <span>Open Advertising Hub</span>
+            <ArrowRight className="w-5 h-5 text-[#0F172A]" />
+          </motion.button>
         </div>
 
-        {/* Available Rewards Previews */}
+        {/* Partner Advertising & Infrastructure Cards */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-extrabold text-zinc-900">Featured ayeT Offers</h2>
-              <p className="text-xs text-zinc-500">Complete tasks and surveys for instant verified payouts</p>
+              <h2 className="text-lg font-extrabold text-zinc-900">Partner Advertising & Monetization</h2>
+              <p className="text-xs text-zinc-500">Live display units supporting Swift Earn infrastructure</p>
             </div>
             <button
               onClick={() => onNavigate('earn')}
               className="text-xs font-bold text-[#6C2BD9] hover:underline flex items-center gap-1 cursor-pointer"
             >
-              <span>View All Offers</span>
+              <span>View Advertising Hub</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
-          {opportunities.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {opportunities.slice(0, 4).map((opp) => (
-                <div
-                  key={opp.id}
-                  className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow"
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="bg-purple-100 text-[#6C2BD9] text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wide">
-                        {opp.category || 'Task'}
-                      </span>
-                      <span className="text-xs font-extrabold text-[#6C2BD9]">
-                        +₦{(opp.reward_amount || opp.reward_points || 10).toFixed(2)}
-                      </span>
-                    </div>
-
-                    <h3 className="text-sm font-bold text-zinc-900 line-clamp-1">{opp.title || opp.name}</h3>
-                    <p className="text-xs text-zinc-500 mt-1 line-clamp-2 leading-relaxed">
-                      {opp.description}
-                    </p>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-zinc-100 flex items-center justify-between">
-                    <span className="text-[11px] text-zinc-400">~{opp.estimated_seconds || opp.estimated_duration || 30}s</span>
-                    <button
-                      onClick={() => onStartRewardOpportunity(opp)}
-                      className="px-3.5 py-1.5 rounded-lg bg-[#6C2BD9] hover:bg-[#5821B0] text-white text-xs font-bold transition-colors cursor-pointer"
-                    >
-                      Start Task
-                    </button>
-                  </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Card 1: Active 300x250 Banner */}
+            <motion.div
+              onClick={() => onNavigate('earn')}
+              whileHover={{ y: -3, transition: { type: 'spring', stiffness: 400, damping: 25 } }}
+              whileTap={{ scale: 0.97, transition: { type: 'spring', stiffness: 500, damping: 15 } }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onNavigate('earn');
+                }
+              }}
+              className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs flex flex-col justify-between cursor-pointer select-none touch-manipulation hover:border-purple-200 hover:shadow-md transition-colors"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="bg-emerald-50 text-emerald-700 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wide border border-emerald-200">
+                    Active Partner
+                  </span>
+                  <span className="text-xs font-mono text-zinc-400">
+                    300 × 250
+                  </span>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl p-6 border border-zinc-200 text-center space-y-3">
-              <p className="text-sm font-bold text-zinc-800">Visit the Earn page to explore all active tasks and reward opportunities.</p>
-              <button
-                onClick={() => onNavigate('earn')}
-                className="px-5 py-2.5 rounded-xl bg-[#6C2BD9] text-white text-xs font-extrabold hover:bg-[#5821B0] transition-colors cursor-pointer"
-              >
-                Go to Earn Page
-              </button>
-            </div>
-          )}
+
+                <h3 className="text-sm font-bold text-zinc-900">Adsterra Display Monetization</h3>
+                <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+                  Active Iframe banner running in our isolated ad sandbox. View real-time placement and partner disclosure on the Earn page.
+                </p>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-zinc-100 flex items-center justify-between text-xs">
+                <span className="text-[11px] text-zinc-400">Status: Live</span>
+                <span className="font-bold text-[#6C2BD9] flex items-center gap-1">
+                  <span>View Placement</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </span>
+              </div>
+            </motion.div>
+
+            {/* Card 2: Financial Integrity & Real-Money Security */}
+            <motion.div
+              onClick={() => onNavigate('wallet')}
+              whileHover={{ y: -3, transition: { type: 'spring', stiffness: 400, damping: 25 } }}
+              whileTap={{ scale: 0.97, transition: { type: 'spring', stiffness: 500, damping: 15 } }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onNavigate('wallet');
+                }
+              }}
+              className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs flex flex-col justify-between cursor-pointer select-none touch-manipulation hover:border-purple-200 hover:shadow-md transition-colors"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="bg-purple-100 text-[#6C2BD9] text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wide">
+                    Double-Entry
+                  </span>
+                  <span className="text-xs font-mono text-zinc-400">
+                    Audited
+                  </span>
+                </div>
+
+                <h3 className="text-sm font-bold text-zinc-900">Authoritative Ledger Protection</h3>
+                <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+                  User balances are decoupled from ad impressions. Real money transfers and reward points are cryptographically validated.
+                </p>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-zinc-100 flex items-center justify-between text-xs">
+                <span className="text-[11px] text-zinc-400">Ledger: Immutable</span>
+                <span className="font-bold text-[#6C2BD9] flex items-center gap-1">
+                  <span>Review Ledger</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </span>
+              </div>
+            </motion.div>
+          </div>
         </div>
 
-        {/* Recent Activity */}
+        {/* Recent Activity (Authoritative User Transactions Only) */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-zinc-200 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
             <div>
@@ -294,7 +331,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </div>
             <button
               onClick={() => onNavigate('wallet')}
-              className="text-xs font-bold text-[#6C2BD9] hover:underline"
+              className="text-xs font-bold text-[#6C2BD9] hover:underline cursor-pointer"
             >
               Full Ledger
             </button>
@@ -303,7 +340,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <div className="divide-y divide-zinc-100">
             {recentTransactions.length === 0 ? (
               <div className="py-8 text-center text-xs text-zinc-400">
-                No recent activity recorded yet. Complete an opportunity to see your verified ledger entry.
+                No recent activity recorded yet. Authoritative reward credits and withdrawals will appear here.
               </div>
             ) : (
               recentTransactions.map((tx) => {

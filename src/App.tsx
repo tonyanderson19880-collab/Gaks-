@@ -121,7 +121,7 @@ const MainAppContent: React.FC = () => {
           <EarnPage
             key={earnRefreshKey}
             onRefreshWallet={() => setEarnRefreshKey((prev) => prev + 1)}
-            onStartRewardOpportunity={handleStartReward}
+            onNavigate={handleNavigate}
           />
         );
       case 'wallet':

@@ -408,11 +408,13 @@ async function startServer() {
     try {
       const { opportunityId } = req.body;
       const userId = req.user!.id;
-      const targetOppId = opportunityId || 'opp_demo_vid_01';
+      if (!opportunityId) {
+        return res.status(400).json({ error: 'opportunityId is required' });
+      }
 
       const result = dbManager.createRewardSession({
         userId,
-        opportunityId: targetOppId,
+        opportunityId,
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
       });
