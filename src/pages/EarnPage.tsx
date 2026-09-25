@@ -3,6 +3,7 @@ import { RefreshCw, Sparkles, ShieldCheck, CheckCircle2, Layers, Check, Info, Lo
 import { useAuth } from '../context/AuthContext';
 import { AdsterraBanner } from '../components/common/AdsterraBanner';
 import { AdsterraBanner160x300 } from '../components/common/AdsterraBanner160x300';
+import { AdsterraNativeBanner } from '../components/common/AdsterraNativeBanner';
 
 interface EarnPageProps {
   onRefreshWallet?: () => void;
@@ -22,14 +23,6 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onNavigate 
 
   // Structured upcoming Adsterra format placements (prepared for step-by-step rollout)
   const upcomingAdsterraFormats = [
-    {
-      id: 'format_native',
-      name: 'Native Banner',
-      type: 'Native Widget',
-      description: 'Contextual partner recommendation block matching Swift Earn responsive design.',
-      status: 'Prepared for Activation',
-      provider: 'Adsterra',
-    },
     {
       id: 'format_social',
       name: 'Social Bar',
@@ -123,7 +116,7 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onNavigate 
         </div>
 
         {/* Section 1: Active Monetization Placement */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-zinc-200 pb-3">
             <div>
               <div className="flex items-center gap-2">
@@ -133,7 +126,7 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onNavigate 
                 </h2>
               </div>
               <p className="text-xs text-zinc-500 mt-0.5">
-                Live Adsterra display banners running on Swift Earn (300 × 250 &amp; 160 × 300)
+                Live Adsterra display &amp; native partner banners running on Swift Earn (300 × 250, 160 × 300 &amp; Responsive Native)
               </p>
             </div>
             <span className="text-[11px] font-mono text-zinc-400">
@@ -150,6 +143,11 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onNavigate 
             <div className="w-full md:w-auto flex justify-center">
               <AdsterraBanner160x300 />
             </div>
+          </div>
+
+          {/* Active Ad Placement: Responsive Native Banner in its own clean responsive row below them */}
+          <div className="w-full flex justify-center">
+            <AdsterraNativeBanner />
           </div>
         </div>
 
