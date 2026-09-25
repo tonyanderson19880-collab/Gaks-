@@ -3,6 +3,7 @@ import { RefreshCw, Award, Sparkles, ShieldCheck, CheckCircle2, Clock, Play, Arr
 import { RewardOpportunity } from '../types';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { AdsterraBanner } from '../components/common/AdsterraBanner';
 
 interface EarnPageProps {
   onRefreshWallet?: () => void;
@@ -58,7 +59,7 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onStartRewa
   });
 
   return (
-    <div className="bg-[#F8FAFC] min-h-screen pb-24 md:pb-12 pt-6">
+    <div className="bg-[#F8FAFC] min-h-screen pb-24 md:pb-12 pt-6 overflow-x-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
         {/* Hero Header */}
@@ -226,6 +227,9 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onStartRewa
             })}
           </div>
         )}
+
+        {/* Adsterra 300x250 Monetization Banner */}
+        <AdsterraBanner />
 
         {/* Verification Guarantee Footer */}
         <div className="bg-white rounded-2xl p-5 border border-zinc-200/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
