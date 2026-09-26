@@ -204,10 +204,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               <span>Partner Monetization</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
-              Explore Swift Earn Advertising Hub
+              Explore Swift Earn Rewards
             </h2>
             <p className="text-xs sm:text-sm text-zinc-400 max-w-xl leading-relaxed">
-              View active Adsterra 300 × 250 display units and review our advertising monetization pipeline.
+              Complete verified earning opportunities and browse sponsored partner content.
             </p>
           </div>
 
@@ -218,7 +218,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             onClick={() => onNavigate('earn')}
             className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-[#B8F500] hover:bg-[#A3DC00] text-[#0F172A] font-black text-base shadow-lg shadow-[#B8F500]/15 transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer select-none touch-manipulation"
           >
-            <span>Open Advertising Hub</span>
+            <span>Start Earning</span>
             <ArrowRight className="w-5 h-5 text-[#0F172A]" />
           </motion.button>
         </div>
@@ -234,7 +234,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               onClick={() => onNavigate('earn')}
               className="text-xs font-bold text-[#6C2BD9] hover:underline flex items-center gap-1 cursor-pointer"
             >
-              <span>View Advertising Hub</span>
+              <span>View Earn Hub</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -265,9 +265,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   </span>
                 </div>
 
-                <h3 className="text-sm font-bold text-zinc-900">Adsterra Display Monetization</h3>
+                <h3 className="text-sm font-bold text-zinc-900">Sponsored Display Content</h3>
                 <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
-                  Active Iframe banner running in our isolated ad sandbox. View real-time placement and partner disclosure on the Earn page.
+                  Verified partner display running in our isolated sandbox. View real-time placement and partner disclosure on the Earn page.
                 </p>
               </div>
 
