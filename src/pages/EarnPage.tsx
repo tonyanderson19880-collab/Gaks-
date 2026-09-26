@@ -6,6 +6,7 @@ import { AdsterraBanner160x300 } from '../components/common/AdsterraBanner160x30
 import { AdsterraNativeBanner } from '../components/common/AdsterraNativeBanner';
 import { AdsterraSocialBar } from '../components/common/AdsterraSocialBar';
 import { AdsterraPopunder } from '../components/common/AdsterraPopunder';
+import { AdsterraSmartlink } from '../components/common/AdsterraSmartlink';
 
 interface EarnPageProps {
   onRefreshWallet?: () => void;
@@ -24,16 +25,14 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onNavigate 
   };
 
   // Structured upcoming Adsterra format placements (prepared for step-by-step rollout)
-  const upcomingAdsterraFormats = [
-    {
-      id: 'format_smartlink',
-      name: 'Direct Smartlink',
-      type: 'Direct Route',
-      description: 'Algorithmic traffic monetization URL connecting to highest-yielding partner campaigns.',
-      status: 'Prepared for Activation',
-      provider: 'Adsterra',
-    },
-  ];
+  const upcomingAdsterraFormats: Array<{
+    id: string;
+    name: string;
+    type: string;
+    description: string;
+    status: string;
+    provider: string;
+  }> = [];
 
   return (
     <div className="bg-[#F8FAFC] min-h-screen pb-24 md:pb-12 pt-6 overflow-x-hidden">
@@ -112,7 +111,7 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onNavigate 
                 </h2>
               </div>
               <p className="text-xs text-zinc-500 mt-0.5">
-                Live Adsterra display, native &amp; interactive overlay units running on Swift Earn (300 × 250, 160 × 300, Native &amp; Social Bar)
+                Live Adsterra display, native, overlay &amp; partner offer units running on Swift Earn (300 × 250, 160 × 300, Native, Social Bar, Popunder &amp; Smartlink)
               </p>
             </div>
             <span className="text-[11px] font-mono text-zinc-400">
@@ -145,6 +144,11 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onNavigate 
           <div className="w-full flex justify-center">
             <AdsterraPopunder />
           </div>
+
+          {/* Active Ad Placement: Smartlink / Direct Link (Sponsored Partner Offer CTA) */}
+          <div className="w-full flex justify-center">
+            <AdsterraSmartlink />
+          </div>
         </div>
 
         {/* Section 2: Prepared Additional Adsterra Formats (Structured for Future Rollout) */}
@@ -167,34 +171,53 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onNavigate 
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {upcomingAdsterraFormats.map((slot) => (
-              <div
-                key={slot.id}
-                className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded bg-zinc-100 text-zinc-600">
-                      {slot.type}
-                    </span>
-                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <Lock className="w-3 h-3" />
-                      {slot.status}
-                    </span>
+            {upcomingAdsterraFormats.length > 0 ? (
+              upcomingAdsterraFormats.map((slot) => (
+                <div
+                  key={slot.id}
+                  className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded bg-zinc-100 text-zinc-600">
+                        {slot.type}
+                      </span>
+                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Lock className="w-3 h-3" />
+                        {slot.status}
+                      </span>
+                    </div>
+
+                    <h3 className="text-sm font-bold text-zinc-900">{slot.name}</h3>
+                    <p className="text-xs text-zinc-500 mt-1.5 leading-relaxed">
+                      {slot.description}
+                    </p>
                   </div>
 
-                  <h3 className="text-sm font-bold text-zinc-900">{slot.name}</h3>
-                  <p className="text-xs text-zinc-500 mt-1.5 leading-relaxed">
-                    {slot.description}
-                  </p>
+                  <div className="mt-4 pt-3 border-t border-zinc-100 flex items-center justify-between text-[11px] text-zinc-400">
+                    <span>Network: {slot.provider}</span>
+                    <span className="font-mono text-zinc-500">Stage: In Pipeline</span>
+                  </div>
                 </div>
-
-                <div className="mt-4 pt-3 border-t border-zinc-100 flex items-center justify-between text-[11px] text-zinc-400">
-                  <span>Network: {slot.provider}</span>
-                  <span className="font-mono text-zinc-500">Stage: In Pipeline</span>
+              ))
+            ) : (
+              <div className="sm:col-span-2 lg:col-span-3 bg-white rounded-2xl p-6 border border-zinc-200 shadow-xs flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                    <Check className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-zinc-900">All Approved Formats Activated</h3>
+                    <p className="text-xs text-zinc-500 mt-0.5">
+                      All 5 core Adsterra formats (300×250, 160×300, Native Banner, Social Bar, Popunder &amp; Smartlink) are deployed in active testing.
+                    </p>
+                  </div>
                 </div>
+                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-3 py-1 rounded-full whitespace-nowrap">
+                  Pipeline Active
+                </span>
               </div>
-            ))}
+            )}
           </div>
         </div>
 
