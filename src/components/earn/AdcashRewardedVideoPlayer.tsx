@@ -33,43 +33,12 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
   const videoRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
 
-  const [step, setStep] = useState<'loading_session' | 'ready_to_play' | 'playing' | 'verifying' | 'completed' | 'pending_verification' | 'error'>('loading_session');
-  const [sessionData, setSessionData] = useState<any>(null);
+  const [step, setStep] = useState<'ready_to_play' | 'playing' | 'completed' | 'error'>('ready_to_play');
   const [errorMessage, setErrorMessage] = useState<string>('');
-  const [verificationResult, setVerificationResult] = useState<any>(null);
   const [imaLoaded, setImaLoaded] = useState(false);
+  const [adDuration, setAdDuration] = useState<number | null>(null);
 
-  // 1. Initialize session on mount
-  useEffect(() => {
-    let isMounted = true;
-    if (!opportunityId) {
-      // Allow proceeding even without opportunityId for direct ad display
-      setStep('ready_to_play');
-      return;
-    }
-
-    api
-      .startRewardedVideoSession(opportunityId)
-      .then((res) => {
-        if (isMounted) {
-          setSessionData(res);
-          setStep('ready_to_play');
-        }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          console.warn('Notice: Session initialization failed, proceeding with direct ad playback:', err);
-          // Still allow playing the ad even if the reward session fails to start
-          setStep('ready_to_play');
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [opportunityId]);
-
-  // 2. Load Google IMA SDK script for VAST ad tag playback
+  // 1. Load Google IMA SDK script
   useEffect(() => {
     if (document.getElementById('google-ima-sdk')) {
       setImaLoaded(true);
@@ -88,7 +57,7 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
     document.body.appendChild(script);
   }, []);
 
-  // 3. Initialize Video.js when ready to play and IMA is loaded
+  // 2. Initialize Video.js when ready to play and IMA is loaded
   useEffect(() => {
     if (step !== 'playing' || !videoRef.current) return;
 
@@ -97,7 +66,7 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
     videoElement.id = 'my-video';
     videoElement.className = 'video-js vjs-default-skin vjs-big-play-centered w-full h-full object-cover';
     videoElement.playsInline = true;
-    videoElement.muted = true; // Use muted by default for reliable autoplay
+    videoElement.muted = true;
 
     // Clear container and append video element
     if (videoRef.current) {
@@ -105,19 +74,18 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
       videoRef.current.appendChild(videoElement);
     }
 
-    // EXACT VAST URL requested by user
+    // EXACT Adcash VAST URL
     const adTagUrl = 'https://youradexchange.com/video/select.php?r=12225346';
 
     const player = videojs(videoElement, {
       autoplay: true,
-      muted: true, // Use muted for autoplay reliability
+      muted: true,
       controls: true,
       responsive: true,
       fluid: true,
       aspectRatio: '16:9',
       sources: [
         {
-          // Reliable content video for IMA initialization
           src: 'https://vjs.zencdn.net/v/oceans.mp4',
           type: 'video/mp4',
         },
@@ -125,16 +93,26 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
     }, () => {
       playerRef.current = player;
 
-      // Initialize IMA plugin if available
       try {
         if (typeof (player as any).ima === 'function') {
           (player as any).ima({
             adTagUrl,
             id: 'my-video',
             showCountdown: true,
+            // Do NOT automatically load another ad
+            adsManagerLoadedCallback: (adsManager: any) => {
+              const googleIMA = (window as any).google;
+              if (googleIMA && googleIMA.ima) {
+                // Capture ad duration when it starts
+                adsManager.addEventListener(googleIMA.ima.AdEvent.Type.STARTED, (adEvent: any) => {
+                  const ad = adEvent.getAd();
+                  const duration = ad.getDuration();
+                  if (duration > 0) setAdDuration(Math.round(duration));
+                });
+              }
+            }
           });
 
-          // Initialize IMA ad display container on user interaction
           const startAdDisplayContainer = () => {
             if ((player as any).ima && typeof (player as any).ima.initializeAdDisplayContainer === 'function') {
               (player as any).ima.initializeAdDisplayContainer();
@@ -148,14 +126,12 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
       }
     });
 
-    // Handle ad errors
     player.on('adserror', (event: any) => {
       console.warn('IMA Ad Error:', event);
       setErrorMessage('No advertisement available right now. Please try again later.');
       setStep('error');
     });
 
-    // Handle general player errors (like MEDIA_ERR_SRC_NOT_SUPPORTED)
     player.on('error', () => {
       const error = player.error();
       console.error('Video.js Player Error:', error);
@@ -163,10 +139,12 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
       setStep('error');
     });
 
+    // When the ad content or the video finishes
     player.on('ended', () => {
-      handleVideoCompletion();
+      setStep('completed');
     });
 
+    // Cleanup
     return () => {
       if (playerRef.current) {
         try {
@@ -177,14 +155,10 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
         playerRef.current = null;
       }
     };
-  }, [step, sessionData, imaLoaded]);
+  }, [step, imaLoaded]);
 
   const handleStartPlayback = () => {
     setStep('playing');
-  };
-
-  const handleVideoCompletion = async () => {
-    setStep('completed');
   };
 
   return (
@@ -213,13 +187,6 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
 
       {/* Main Content Area */}
       <div className="p-5 sm:p-6 space-y-4">
-        {step === 'loading_session' && (
-          <div className="py-16 text-center space-y-3">
-            <Loader2 className="w-8 h-8 text-purple-400 animate-spin mx-auto" />
-            <p className="text-sm font-medium text-zinc-300">Loading advertisement…</p>
-          </div>
-        )}
-
         {step === 'ready_to_play' && (
           <div className="space-y-5 text-center py-6">
             <div className="w-16 h-16 rounded-3xl bg-purple-600/10 text-purple-400 border border-purple-500/20 flex items-center justify-center mx-auto shadow-inner">
@@ -227,9 +194,9 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
             </div>
 
             <div className="space-y-1.5 max-w-sm mx-auto">
-              <h3 className="text-lg font-extrabold text-white">ADVERTISEMENT</h3>
+              <h3 className="text-lg font-extrabold text-white uppercase tracking-tight">Advertisement</h3>
               <p className="text-xs text-zinc-400 leading-relaxed">
-                Please watch this sponsored advertisement to support Swift Earn.
+                Watch a real-time advertisement from Adcash. This helps support the platform.
               </p>
             </div>
 
@@ -238,7 +205,7 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
               className="w-full max-w-sm mx-auto py-3.5 px-6 rounded-2xl bg-[#6C2BD9] hover:bg-[#5821B0] active:scale-[0.98] text-white font-extrabold text-sm shadow-lg shadow-purple-900/30 transition-all flex items-center justify-center gap-2 cursor-pointer touch-manipulation"
             >
               <Play className="w-4 h-4 fill-current" />
-              <span>Watch Advertisement</span>
+              <span>Watch Ad</span>
             </button>
           </div>
         )}
@@ -260,8 +227,10 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
               <CheckCircle2 className="w-7 h-7" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-base font-extrabold text-white">Ad Finished</h3>
-              <p className="text-xs text-zinc-300">Thank you for watching the advertisement.</p>
+              <h3 className="text-base font-extrabold text-white">Ad completed successfully.</h3>
+              {adDuration && (
+                <p className="text-xs text-zinc-300">{adDuration}-second ad completed.</p>
+              )}
             </div>
             <div className="pt-2">
               <button
@@ -281,7 +250,7 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
             </div>
             <div className="space-y-1">
               <h3 className="text-base font-extrabold text-white">Ad Unavailable</h3>
-              <p className="text-xs text-rose-300">No advertisement available right now. Please try again later.</p>
+              <p className="text-xs text-rose-300">{errorMessage || 'No advertisement available right now. Please try again later.'}</p>
             </div>
             <div className="pt-2">
               <button

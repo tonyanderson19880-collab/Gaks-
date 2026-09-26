@@ -41,18 +41,12 @@ export const RewardOpportunityList: React.FC<RewardOpportunityListProps> = ({
 
       {!loading && error && <EarnErrorState message={error} onRetry={onRetry} />}
 
-      {!loading && !error && opportunities.length === 0 && <EarnEmptyState />}
-
-      {!loading && !error && opportunities.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {!loading && !error && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
           <RewardedVideoCard />
-          {opportunities.map((opp) => (
-            <RewardOpportunityCard
-              key={opp.id}
-              opportunity={opp}
-              onStart={onStart}
-            />
-          ))}
+          <RewardedVideoCard />
+          <RewardedVideoCard />
+          <RewardedVideoCard />
         </div>
       )}
     </section>
