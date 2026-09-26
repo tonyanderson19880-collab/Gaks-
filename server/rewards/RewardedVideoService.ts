@@ -8,6 +8,8 @@ import {
   RewardedVideoVerificationResult,
 } from './RewardedVideoProvider.js';
 import { DemoRewardedVideoProvider } from './providers/DemoRewardedVideoProvider.js';
+import { AdcashRewardedVideoProvider } from './providers/AdcashRewardedVideoProvider.js';
+import { dbManager } from '../db.js';
 
 /**
  * RewardedVideoService
@@ -19,10 +21,11 @@ import { DemoRewardedVideoProvider } from './providers/DemoRewardedVideoProvider
 export class RewardedVideoService {
   private static instance: RewardedVideoService;
   private providers: Map<string, RewardedVideoProvider> = new Map();
-  private defaultProviderName: string = 'demo_rewarded_video';
+  private defaultProviderName: string = process.env.REWARDED_VIDEO_PROVIDER || 'demo_rewarded_video';
 
   private constructor() {
     this.registerProvider(new DemoRewardedVideoProvider());
+    this.registerProvider(new AdcashRewardedVideoProvider());
   }
 
   public static getInstance(): RewardedVideoService {
@@ -92,7 +95,9 @@ export class RewardedVideoService {
     sessionId: string,
     providerName?: string
   ): Promise<RewardedVideoStatusResult> {
-    const provider = this.getProvider(providerName);
+    const session = dbManager.findRewardSession(sessionId);
+    const resolvedName = providerName || session?.provider || session?.metadata?.providerName || 'demo_rewarded_video';
+    const provider = this.getProvider(resolvedName);
     if (!provider) {
       throw new Error('Rewarded video service is currently unavailable.');
     }
@@ -103,7 +108,9 @@ export class RewardedVideoService {
     params: RewardedVideoCompletionParams,
     providerName?: string
   ): Promise<RewardedVideoVerificationResult> {
-    const provider = this.getProvider(providerName);
+    const session = dbManager.findRewardSession(params.sessionId);
+    const resolvedName = providerName || session?.provider || session?.metadata?.providerName || 'demo_rewarded_video';
+    const provider = this.getProvider(resolvedName);
     if (!provider) {
       throw new Error('Rewarded video service is currently unavailable.');
     }

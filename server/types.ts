@@ -69,6 +69,7 @@ export interface RewardSession {
   claimed_at?: string;
   verified_at?: string;
   expires_at: string;
+  provider?: string;
   claimed: boolean;
   expected_amount?: number;
   metadata?: Record<string, any>;

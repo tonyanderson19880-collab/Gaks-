@@ -96,6 +96,7 @@ export async function runRewardedVideoSuite(): Promise<{
 
     logTest('2. Valid completion', passed);
   } catch (err: any) {
+    console.error('TEST 2 ERROR:', err);
     logTest('2. Valid completion', false, err.message);
   }
 
@@ -119,6 +120,7 @@ export async function runRewardedVideoSuite(): Promise<{
 
     logTest('3. Duplicate completion', passed);
   } catch (err: any) {
+    console.error('TEST 3 ERROR:', err);
     logTest('3. Duplicate completion', false, err.message);
   }
 
@@ -312,6 +314,43 @@ export async function runRewardedVideoSuite(): Promise<{
     }
   } catch (err: any) {
     logTest('11. Demo provider blocked in production', false, err.message);
+  }
+
+  // ----------------------------------------------------
+  // Scenario 12: Adcash provider loads
+  // ----------------------------------------------------
+  try {
+    const adcashProvider = rewardedVideoService.getProvider('adcash');
+    const passed = Boolean(adcashProvider) && adcashProvider?.providerName === 'adcash' && adcashProvider?.isDemo === false;
+    logTest('12. Adcash provider loads', passed);
+  } catch (err: any) {
+    logTest('12. Adcash provider loads', false, err.message);
+  }
+
+  // ----------------------------------------------------
+  // Scenario 13: Adcash session creation & pending verification
+  // ----------------------------------------------------
+  try {
+    const adcashSession = await rewardedVideoService.startSession({
+      userId,
+      opportunityId: opp.id,
+    }, 'adcash');
+
+    const verifyRes = await rewardedVideoService.verifyCompletion({
+      sessionId: adcashSession.sessionId,
+      userId,
+    });
+
+    const passed =
+      Boolean(adcashSession.sessionId) &&
+      adcashSession.providerName === 'adcash' &&
+      adcashSession.metadata?.adTagUrl === 'https://youradexchange.com/video/select.php?r=12224982' &&
+      verifyRes.success === false &&
+      verifyRes.error === 'SERVER_VERIFICATION_PENDING';
+
+    logTest('13. Adcash session & pending verification', passed);
+  } catch (err: any) {
+    logTest('13. Adcash session & pending verification', false, err.message);
   }
 
   const passedCount = results.filter((r) => r.passed).length;

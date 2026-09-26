@@ -1049,6 +1049,7 @@ class DatabaseManager {
     opportunityId: string;
     ipAddress?: string;
     userAgent?: string;
+    provider?: string;
   }): { session: RewardSession; opportunity: RewardOpportunity; token: string } {
     const opp = this.getOpportunityById(params.opportunityId);
     if (!opp) throw new Error('Reward opportunity not found');
@@ -1086,6 +1087,7 @@ class DatabaseManager {
       user_agent: params.userAgent,
       started_at: new Date().toISOString(),
       expires_at: expiresAt,
+      provider: params.provider || 'demo_rewarded_video',
       claimed: false,
     };
 

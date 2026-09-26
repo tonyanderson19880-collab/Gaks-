@@ -53,6 +53,7 @@ export class DemoRewardedVideoProvider implements RewardedVideoProvider {
       opportunityId,
       ipAddress,
       userAgent,
+      provider: this.providerName,
     });
 
     const opp = result.opportunity;
