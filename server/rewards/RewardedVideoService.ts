@@ -9,6 +9,7 @@ import {
 } from './RewardedVideoProvider.js';
 import { DemoRewardedVideoProvider } from './providers/DemoRewardedVideoProvider.js';
 import { AdcashRewardedVideoProvider } from './providers/AdcashRewardedVideoProvider.js';
+import { MonetagRewardedVideoProvider } from './providers/MonetagRewardedVideoProvider.js';
 import { dbManager } from '../db.js';
 
 /**
@@ -26,6 +27,7 @@ export class RewardedVideoService {
   private constructor() {
     this.registerProvider(new DemoRewardedVideoProvider());
     this.registerProvider(new AdcashRewardedVideoProvider());
+    this.registerProvider(new MonetagRewardedVideoProvider());
   }
 
   public static getInstance(): RewardedVideoService {

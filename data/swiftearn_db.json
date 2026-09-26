@@ -339,6 +339,26 @@
       "referred_by_user_id": null,
       "created_at": "2026-09-26T12:09:50.517Z",
       "updated_at": "2026-09-26T12:09:50.517Z"
+    },
+    {
+      "id": "usr_04ed239240f43fd8",
+      "email": "test_video_1790428373519@swiftearn.test",
+      "password_hash": "a1f6fcbfe2328311a4d1257de5635ee7461553ad6e3ec949383622424434bb01",
+      "status": "restricted",
+      "referral_code": "SE-7F8F18",
+      "referred_by_user_id": null,
+      "created_at": "2026-09-26T13:12:53.520Z",
+      "updated_at": "2026-09-26T13:12:53.520Z"
+    },
+    {
+      "id": "usr_b828bc85463b0977",
+      "email": "intruder_1790428373570@swiftearn.test",
+      "password_hash": "a1f6fcbfe2328311a4d1257de5635ee7461553ad6e3ec949383622424434bb01",
+      "status": "restricted",
+      "referral_code": "SE-A9F442",
+      "referred_by_user_id": null,
+      "created_at": "2026-09-26T13:12:53.570Z",
+      "updated_at": "2026-09-26T13:12:53.570Z"
     }
   ],
   "profiles": [
@@ -746,6 +766,30 @@
       "reward_alerts": true,
       "created_at": "2026-09-26T12:09:50.517Z",
       "updated_at": "2026-09-26T12:09:50.517Z"
+    },
+    {
+      "user_id": "usr_04ed239240f43fd8",
+      "full_name": "Video Tester",
+      "avatar_initials": "VT",
+      "phone": "",
+      "country": "Nigeria",
+      "preferred_payment_method": "bank_transfer",
+      "email_notifications": true,
+      "reward_alerts": true,
+      "created_at": "2026-09-26T13:12:53.520Z",
+      "updated_at": "2026-09-26T13:12:53.520Z"
+    },
+    {
+      "user_id": "usr_b828bc85463b0977",
+      "full_name": "Intruder User",
+      "avatar_initials": "IU",
+      "phone": "",
+      "country": "Nigeria",
+      "preferred_payment_method": "bank_transfer",
+      "email_notifications": true,
+      "reward_alerts": true,
+      "created_at": "2026-09-26T13:12:53.570Z",
+      "updated_at": "2026-09-26T13:12:53.570Z"
     }
   ],
   "wallets": [
@@ -1045,6 +1089,24 @@
       "total_withdrawn": 0,
       "currency": "NGN",
       "updated_at": "2026-09-26T12:09:50.517Z"
+    },
+    {
+      "user_id": "usr_04ed239240f43fd8",
+      "available_balance": 70,
+      "pending_rewards": 0,
+      "total_earned": 70,
+      "total_withdrawn": 0,
+      "currency": "NGN",
+      "updated_at": "2026-09-26T13:12:53.594Z"
+    },
+    {
+      "user_id": "usr_b828bc85463b0977",
+      "available_balance": 0,
+      "pending_rewards": 0,
+      "total_earned": 0,
+      "total_withdrawn": 0,
+      "currency": "NGN",
+      "updated_at": "2026-09-26T13:12:53.570Z"
     }
   ],
   "reward_opportunities": [
@@ -2437,6 +2499,102 @@
       "expires_at": "2026-09-26T12:24:50.568Z",
       "provider": "adcash",
       "claimed": false
+    },
+    {
+      "id": "ses_021115a117a374140076",
+      "user_id": "usr_04ed239240f43fd8",
+      "opportunity_id": "opp_task_survey_01",
+      "provider_session_id": "PS-8F94B60017EFF294",
+      "provider_token": "4006d83d9a45635216a34a60173c02bb351a10d0f4136132f06f08b2a9fd8466.1790428373551",
+      "status": "claimed",
+      "ip_address": "127.0.0.1",
+      "user_agent": "TestSuite/1.0",
+      "started_at": "2026-09-26T13:12:53.551Z",
+      "expires_at": "2026-09-26T13:27:53.550Z",
+      "provider": "demo_rewarded_video",
+      "claimed": true,
+      "claimed_at": "2026-09-26T13:12:53.561Z",
+      "metadata": {
+        "providerTransactionId": "PROV-TX-001",
+        "providerName": "demo_rewarded_video"
+      }
+    },
+    {
+      "id": "ses_0cdf578ff3eb7d2ad3f5",
+      "user_id": "usr_04ed239240f43fd8",
+      "opportunity_id": "opp_task_survey_01",
+      "provider_session_id": "PS-4DF965807B4D1E00",
+      "provider_token": "5c6f5f5467268af93c5f9b927528ea6530ab93fde97d587b4bc64e6b4bc01046.1790428373567",
+      "status": "initiated",
+      "started_at": "2026-09-26T13:12:53.567Z",
+      "expires_at": "2026-09-26T13:27:53.567Z",
+      "provider": "demo_rewarded_video",
+      "claimed": false
+    },
+    {
+      "id": "ses_bb9a9bcd73390a78d78d",
+      "user_id": "usr_04ed239240f43fd8",
+      "opportunity_id": "opp_task_survey_01",
+      "provider_session_id": "PS-A2DDCE37455E689D",
+      "provider_token": "2355aeb6d8953aa9b726853ebec502aef11d6cefa4539c25b9d0065bc5aba7d0.1790428373579",
+      "status": "initiated",
+      "started_at": "2026-09-26T13:12:53.579Z",
+      "expires_at": "2026-09-26T13:27:53.579Z",
+      "provider": "demo_rewarded_video",
+      "claimed": false
+    },
+    {
+      "id": "ses_849b0e4e6e32486cc027",
+      "user_id": "usr_04ed239240f43fd8",
+      "opportunity_id": "opp_task_survey_01",
+      "provider_session_id": "PS-C6288AA900368A24",
+      "provider_token": "21a7ac930d9b119e243541a37043c1d9929e816da5f1bba5e17163e128e1ca34.1790428373582",
+      "status": "expired",
+      "started_at": "2026-09-26T13:12:53.582Z",
+      "expires_at": "2026-09-26T13:12:48.585Z",
+      "provider": "demo_rewarded_video",
+      "claimed": false
+    },
+    {
+      "id": "ses_422fa59a6ac6b2c9ec92",
+      "user_id": "usr_04ed239240f43fd8",
+      "opportunity_id": "opp_task_survey_01",
+      "provider_session_id": "PS-F6CF5252D1F954DE",
+      "provider_token": "ff22d7abc6bca97411b5533191b149cd1e1d48a7aa82f27288ce8bfdbbfe5a0b.1790428373585",
+      "status": "initiated",
+      "started_at": "2026-09-26T13:12:53.585Z",
+      "expires_at": "2026-09-26T13:27:53.585Z",
+      "provider": "demo_rewarded_video",
+      "claimed": false
+    },
+    {
+      "id": "ses_5ad7f300bbcd2507d8bd",
+      "user_id": "usr_04ed239240f43fd8",
+      "opportunity_id": "opp_task_survey_01",
+      "provider_session_id": "PS-1BEEC500E27390BA",
+      "provider_token": "2f4e86b9e6ba472ea9cc668b31367ec7babb36a872c62670ce3cb92a05d39c68.1790428373591",
+      "status": "claimed",
+      "started_at": "2026-09-26T13:12:53.591Z",
+      "expires_at": "2026-09-26T13:27:53.591Z",
+      "provider": "demo_rewarded_video",
+      "claimed": true,
+      "claimed_at": "2026-09-26T13:12:53.600Z",
+      "metadata": {
+        "providerTransactionId": "CERT-TX-1790428373594",
+        "providerName": "demo_rewarded_video"
+      }
+    },
+    {
+      "id": "ses_1fdb9c9a025d0994cd2f",
+      "user_id": "usr_04ed239240f43fd8",
+      "opportunity_id": "opp_task_survey_01",
+      "provider_session_id": "PS-D3B4730538B2D554",
+      "provider_token": "c5c69e599a647d471c53550c1a33eff9b05142c1131ec2c7fa96d4cbbabe46b9.1790428373603",
+      "status": "initiated",
+      "started_at": "2026-09-26T13:12:53.603Z",
+      "expires_at": "2026-09-26T13:27:53.603Z",
+      "provider": "adcash",
+      "claimed": false
     }
   ],
   "reward_events": [
@@ -3682,6 +3840,98 @@
         "points": 35
       },
       "created_at": "2026-09-26T12:09:50.568Z"
+    },
+    {
+      "id": "rev_6e0431edf03de0ae",
+      "session_id": "ses_021115a117a374140076",
+      "event_type": "session_start",
+      "metadata": {
+        "oppTitle": "Partner Opinion Survey",
+        "points": 35
+      },
+      "created_at": "2026-09-26T13:12:53.551Z"
+    },
+    {
+      "id": "rev_1f393c015e427680",
+      "session_id": "ses_021115a117a374140076",
+      "event_type": "session_claim",
+      "metadata": {
+        "oppTitle": "Partner Opinion Survey",
+        "amount": 35,
+        "ref": "SE-REW-3D86ACFB1A"
+      },
+      "created_at": "2026-09-26T13:12:53.562Z"
+    },
+    {
+      "id": "rev_2f8e3f4dfb2d669d",
+      "session_id": "ses_0cdf578ff3eb7d2ad3f5",
+      "event_type": "session_start",
+      "metadata": {
+        "oppTitle": "Partner Opinion Survey",
+        "points": 35
+      },
+      "created_at": "2026-09-26T13:12:53.567Z"
+    },
+    {
+      "id": "rev_6946e74645d50697",
+      "session_id": "ses_bb9a9bcd73390a78d78d",
+      "event_type": "session_start",
+      "metadata": {
+        "oppTitle": "Partner Opinion Survey",
+        "points": 35
+      },
+      "created_at": "2026-09-26T13:12:53.579Z"
+    },
+    {
+      "id": "rev_56b5b8d98438d40d",
+      "session_id": "ses_849b0e4e6e32486cc027",
+      "event_type": "session_start",
+      "metadata": {
+        "oppTitle": "Partner Opinion Survey",
+        "points": 35
+      },
+      "created_at": "2026-09-26T13:12:53.582Z"
+    },
+    {
+      "id": "rev_998e30d1aa70b8a2",
+      "session_id": "ses_422fa59a6ac6b2c9ec92",
+      "event_type": "session_start",
+      "metadata": {
+        "oppTitle": "Partner Opinion Survey",
+        "points": 35
+      },
+      "created_at": "2026-09-26T13:12:53.585Z"
+    },
+    {
+      "id": "rev_5105713c6e4b2086",
+      "session_id": "ses_5ad7f300bbcd2507d8bd",
+      "event_type": "session_start",
+      "metadata": {
+        "oppTitle": "Partner Opinion Survey",
+        "points": 35
+      },
+      "created_at": "2026-09-26T13:12:53.591Z"
+    },
+    {
+      "id": "rev_5fe2d7c6b69f35f4",
+      "session_id": "ses_5ad7f300bbcd2507d8bd",
+      "event_type": "session_claim",
+      "metadata": {
+        "oppTitle": "Partner Opinion Survey",
+        "amount": 35,
+        "ref": "SE-REW-AF6BD23034"
+      },
+      "created_at": "2026-09-26T13:12:53.600Z"
+    },
+    {
+      "id": "rev_5e0d080290e5b1b9",
+      "session_id": "ses_1fdb9c9a025d0994cd2f",
+      "event_type": "session_start",
+      "metadata": {
+        "oppTitle": "Partner Opinion Survey",
+        "points": 35
+      },
+      "created_at": "2026-09-26T13:12:53.603Z"
     }
   ],
   "ledger_entries": [
@@ -4008,6 +4258,30 @@
       "description": "Verified rewarded view: Partner Opinion Survey",
       "idempotency_key": "callback_CERT-TX-1790424590562_ses_33fae12aab5cd7c58e91",
       "created_at": "2026-09-26T12:09:50.562Z"
+    },
+    {
+      "id": "ledg_0042b3e2f5d2a11a",
+      "user_id": "usr_04ed239240f43fd8",
+      "entry_type": "reward_credit",
+      "amount": 35,
+      "running_balance": 35,
+      "status": "confirmed",
+      "reference": "SE-REW-3D86ACFB1A",
+      "description": "Verified rewarded view: Partner Opinion Survey",
+      "idempotency_key": "test_idemp_ses_021115a117a374140076",
+      "created_at": "2026-09-26T13:12:53.556Z"
+    },
+    {
+      "id": "ledg_22a1b2cb7dfec050",
+      "user_id": "usr_04ed239240f43fd8",
+      "entry_type": "reward_credit",
+      "amount": 35,
+      "running_balance": 70,
+      "status": "confirmed",
+      "reference": "SE-REW-AF6BD23034",
+      "description": "Verified rewarded view: Partner Opinion Survey",
+      "idempotency_key": "callback_CERT-TX-1790428373594_ses_5ad7f300bbcd2507d8bd",
+      "created_at": "2026-09-26T13:12:53.594Z"
     }
   ],
   "withdrawals": [
@@ -4674,6 +4948,46 @@
       },
       "resolved": false,
       "created_at": "2026-09-26T12:09:50.557Z"
+    },
+    {
+      "id": "frd_0d6617597d92bb85",
+      "user_id": "usr_b828bc85463b0977",
+      "event_type": "suspicious_activity",
+      "severity": "high",
+      "description": "rewarded_video_wrong_user",
+      "risk_score": 85,
+      "flag_reason": "rewarded_video_wrong_user",
+      "details": {
+        "sessionId": "ses_0cdf578ff3eb7d2ad3f5",
+        "expectedUser": "usr_04ed239240f43fd8",
+        "attemptedUser": "usr_b828bc85463b0977"
+      },
+      "metadata": {
+        "sessionId": "ses_0cdf578ff3eb7d2ad3f5",
+        "expectedUser": "usr_04ed239240f43fd8",
+        "attemptedUser": "usr_b828bc85463b0977"
+      },
+      "resolved": false,
+      "created_at": "2026-09-26T13:12:53.576Z"
+    },
+    {
+      "id": "frd_f2820ae0b03c63ce",
+      "user_id": "usr_04ed239240f43fd8",
+      "event_type": "suspicious_activity",
+      "severity": "high",
+      "description": "rewarded_video_invalid_signature",
+      "risk_score": 95,
+      "flag_reason": "rewarded_video_invalid_signature",
+      "details": {
+        "sessionId": "ses_422fa59a6ac6b2c9ec92",
+        "providerTransactionId": "TX-FORGED-001"
+      },
+      "metadata": {
+        "sessionId": "ses_422fa59a6ac6b2c9ec92",
+        "providerTransactionId": "TX-FORGED-001"
+      },
+      "resolved": false,
+      "created_at": "2026-09-26T13:12:53.588Z"
     }
   ],
   "audit_logs": [
@@ -5208,6 +5522,42 @@
       "type": "reward",
       "read": false,
       "created_at": "2026-09-26T12:09:50.562Z"
+    },
+    {
+      "id": "notif_1a1be386103be659",
+      "user_id": "usr_04ed239240f43fd8",
+      "title": "Welcome to Swift Earn",
+      "message": "Your account is ready! Complete verified rewarded ad opportunities to start earning.",
+      "type": "system",
+      "read": false,
+      "created_at": "2026-09-26T13:12:53.520Z"
+    },
+    {
+      "id": "notif_3e917df56d98d091",
+      "user_id": "usr_04ed239240f43fd8",
+      "title": "Reward Confirmed!",
+      "message": "You earned +₦35.00 (Verified rewarded view: Partner Opinion Survey). Added to your confirmed balance.",
+      "type": "reward",
+      "read": false,
+      "created_at": "2026-09-26T13:12:53.556Z"
+    },
+    {
+      "id": "notif_e95557d9123d853b",
+      "user_id": "usr_b828bc85463b0977",
+      "title": "Welcome to Swift Earn",
+      "message": "Your account is ready! Complete verified rewarded ad opportunities to start earning.",
+      "type": "system",
+      "read": false,
+      "created_at": "2026-09-26T13:12:53.570Z"
+    },
+    {
+      "id": "notif_67b0c122fda40a88",
+      "user_id": "usr_04ed239240f43fd8",
+      "title": "Reward Confirmed!",
+      "message": "You earned +₦35.00 (Verified rewarded view: Partner Opinion Survey). Added to your confirmed balance.",
+      "type": "reward",
+      "read": false,
+      "created_at": "2026-09-26T13:12:53.594Z"
     }
   ],
   "config": {
