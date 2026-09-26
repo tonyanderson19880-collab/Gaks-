@@ -56,7 +56,7 @@ export class AdcashRewardedVideoProvider implements RewardedVideoProvider {
       expiresAt: result.session.expires_at,
       token: result.token,
       metadata: {
-        adTagUrl: 'https://youradexchange.com/video/select.php?r=12224982',
+        adTagUrl: 'https://youradexchange.com/video/select.php?r=12225346',
         estimatedSeconds: opp.estimated_seconds || opp.estimated_duration || 30,
         ...metadata,
       },

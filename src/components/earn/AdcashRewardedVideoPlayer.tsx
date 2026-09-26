@@ -33,12 +33,40 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
   const videoRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
 
-  const [step, setStep] = useState<'ready_to_play' | 'playing' | 'completed' | 'error'>('ready_to_play');
+  const [step, setStep] = useState<'loading_session' | 'ready_to_play' | 'playing' | 'verifying' | 'completed' | 'error'>('loading_session');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [imaLoaded, setImaLoaded] = useState(false);
   const [adDuration, setAdDuration] = useState<number | null>(null);
+  const [session, setSession] = useState<any>(null);
+  const [verificationData, setVerificationData] = useState<any>(null);
 
-  // 1. Load Google IMA SDK script
+  // 1. Initialize session on mount
+  useEffect(() => {
+    let isMounted = true;
+    const startSession = async () => {
+      try {
+        // Find a video opportunity or use a fallback
+        const opps = await api.getOpportunities();
+        const videoOpp = opps.opportunities?.find(o => o.category === 'video') || { id: 'adcash-video-zone-12225346' };
+        
+        const res = await api.startRewardedVideoSession(videoOpp.id);
+        if (isMounted) {
+          setSession(res);
+          setStep('ready_to_play');
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          setErrorMessage(err.message || 'Failed to initialize ad session.');
+          setStep('error');
+        }
+      }
+    };
+
+    startSession();
+    return () => { isMounted = false; };
+  }, [opportunityId]);
+
+  // 2. Load Google IMA SDK script
   useEffect(() => {
     if (document.getElementById('google-ima-sdk')) {
       setImaLoaded(true);
@@ -57,9 +85,9 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
     document.body.appendChild(script);
   }, []);
 
-  // 2. Initialize Video.js when ready to play and IMA is loaded
+  // 3. Initialize Video.js when ready to play and IMA is loaded
   useEffect(() => {
-    if (step !== 'playing' || !videoRef.current) return;
+    if (step !== 'playing' || !videoRef.current || !session) return;
 
     // Ensure video element exists
     const videoElement = document.createElement('video');
@@ -74,7 +102,7 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
       videoRef.current.appendChild(videoElement);
     }
 
-    // EXACT Adcash VAST URL
+    // EXACT Adcash VAST URL provided by user
     const adTagUrl = 'https://youradexchange.com/video/select.php?r=12225346';
 
     const player = videojs(videoElement, {
@@ -141,7 +169,7 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
 
     // When the ad content or the video finishes
     player.on('ended', () => {
-      setStep('completed');
+      handleAdCompletion();
     });
 
     // Cleanup
@@ -155,10 +183,36 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
         playerRef.current = null;
       }
     };
-  }, [step, imaLoaded]);
+  }, [step, imaLoaded, session]);
 
   const handleStartPlayback = () => {
     setStep('playing');
+  };
+
+  const handleAdCompletion = async () => {
+    if (!session?.sessionId) {
+      setStep('completed');
+      return;
+    }
+
+    setStep('verifying');
+    try {
+      // Authoritative server-side verification request
+      const res = await api.verifyRewardedVideoCompletion(session.sessionId, {
+        elapsedSeconds: adDuration || 30,
+        providerTransactionId: session.providerSessionId
+      });
+      
+      setVerificationData(res);
+      setStep('completed');
+      
+      if (res.success && onRewardClaimed) {
+        onRewardClaimed();
+      }
+    } catch (err: any) {
+      setErrorMessage('Your ad completion could not be verified. No reward was added.');
+      setStep('error');
+    }
   };
 
   return (
@@ -187,6 +241,13 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
 
       {/* Main Content Area */}
       <div className="p-5 sm:p-6 space-y-4">
+        {step === 'loading_session' && (
+          <div className="py-16 text-center space-y-3">
+            <Loader2 className="w-8 h-8 text-purple-400 animate-spin mx-auto" />
+            <p className="text-sm font-medium text-zinc-300">Initializing secure ad session…</p>
+          </div>
+        )}
+
         {step === 'ready_to_play' && (
           <div className="space-y-5 text-center py-6">
             <div className="w-16 h-16 rounded-3xl bg-purple-600/10 text-purple-400 border border-purple-500/20 flex items-center justify-center mx-auto shadow-inner">
@@ -221,15 +282,26 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
           </div>
         )}
 
+        {step === 'verifying' && (
+          <div className="py-16 text-center space-y-3">
+            <Loader2 className="w-8 h-8 text-purple-400 animate-spin mx-auto" />
+            <p className="text-sm font-medium text-zinc-300">Verifying your reward...</p>
+          </div>
+        )}
+
         {step === 'completed' && (
           <div className="py-8 text-center space-y-4">
-            <div className="w-14 h-14 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center mx-auto">
-              <CheckCircle2 className="w-7 h-7" />
+            <div className={`w-14 h-14 rounded-full ${verificationData?.success ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'} border flex items-center justify-center mx-auto`}>
+              {verificationData?.success ? <CheckCircle2 className="w-7 h-7" /> : <AlertCircle className="w-7 h-7" />}
             </div>
             <div className="space-y-1">
-              <h3 className="text-base font-extrabold text-white">Ad completed successfully.</h3>
-              {adDuration && (
-                <p className="text-xs text-zinc-300">{adDuration}-second ad completed.</p>
+              <h3 className="text-base font-extrabold text-white">Ad completed</h3>
+              {verificationData?.success ? (
+                <p className="text-sm font-bold text-emerald-400">Reward: ₦{verificationData.rewardAmount || 10}</p>
+              ) : (
+                <p className="text-xs text-zinc-300 max-w-xs mx-auto">
+                  Your ad completion could not be verified. No reward was added.
+                </p>
               )}
             </div>
             <div className="pt-2">
@@ -250,7 +322,7 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
             </div>
             <div className="space-y-1">
               <h3 className="text-base font-extrabold text-white">Ad Unavailable</h3>
-              <p className="text-xs text-rose-300">{errorMessage || 'No advertisement available right now. Please try again later.'}</p>
+              <p className="text-xs text-rose-300 max-w-xs mx-auto">{errorMessage || 'No advertisement available right now. Please try again later.'}</p>
             </div>
             <div className="pt-2">
               <button

@@ -22,10 +22,9 @@ import { dbManager } from '../db.js';
 export class RewardedVideoService {
   private static instance: RewardedVideoService;
   private providers: Map<string, RewardedVideoProvider> = new Map();
-  private defaultProviderName: string = process.env.REWARDED_VIDEO_PROVIDER || 'demo_rewarded_video';
+  private defaultProviderName: string = process.env.REWARDED_VIDEO_PROVIDER || 'adcash';
 
   private constructor() {
-    this.registerProvider(new DemoRewardedVideoProvider());
     this.registerProvider(new AdcashRewardedVideoProvider());
     this.registerProvider(new MonetagRewardedVideoProvider());
   }
