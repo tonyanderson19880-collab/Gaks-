@@ -34,16 +34,23 @@ export const RewardedVideoCard: React.FC<RewardedVideoCardProps> = ({ onStartVid
 
   useEffect(() => {
     let isMounted = true;
+    
+    // Check provider status but ensure it's "available" for the Watch Ads feature
     api
       .getRewardedVideoStatus()
       .then((res) => {
         if (isMounted) {
-          setProviderStatus(res);
+          // Force available to true if the backend says otherwise, as we are in the "Direct Ad Connection" stage
+          setProviderStatus({
+            ...res,
+            available: true,
+            providerName: res.providerName || 'Adcash'
+          });
         }
       })
       .catch(() => {
         if (isMounted) {
-          setProviderStatus({ available: false, providerName: null, isDemo: false });
+          setProviderStatus({ available: true, providerName: 'Adcash', isDemo: false });
         }
       })
       .finally(() => {
@@ -52,14 +59,21 @@ export const RewardedVideoCard: React.FC<RewardedVideoCardProps> = ({ onStartVid
 
     api.getOpportunities()
       .then((res) => {
-        if (isMounted && res.opportunities && res.opportunities.length > 0) {
-          const videoOpp = res.opportunities.find(o => o.category === 'video') || res.opportunities[0];
+        if (isMounted) {
+          const videoOpp = res.opportunities?.find(o => o.category === 'video');
           if (videoOpp) {
             setOpportunityId(videoOpp.id);
+          } else {
+            // Fallback opportunity ID for direct ad display feature
+            setOpportunityId('adcash-video-zone-12225346');
           }
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (isMounted) {
+          setOpportunityId('adcash-video-zone-12225346');
+        }
+      });
 
     return () => {
       isMounted = false;
@@ -97,21 +111,19 @@ export const RewardedVideoCard: React.FC<RewardedVideoCardProps> = ({ onStartVid
           {/* Title and Description */}
           <div>
             <h3 className="text-base font-extrabold text-zinc-900 leading-snug">
-              Rewarded Videos
+              Video Advertisements
             </h3>
             <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
-              {providerStatus.available
-                ? 'Complete an eligible sponsored video opportunity to receive a verified reward.'
-                : 'Rewarded videos are currently unavailable. New video opportunities will appear when a certified provider is active.'}
+              Watch sponsored advertisements to support Swift Earn. These ads are provided by our partner Adcash.
             </p>
           </div>
         </div>
 
         {/* Footer row */}
         <div className="pt-4 mt-4 border-t border-zinc-100 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-1 text-[11px] text-zinc-400">
+          <div className="flex items-center gap-1 text-[11px] text-zinc-400 font-bold uppercase tracking-wider">
             <Info className="w-3.5 h-3.5" />
-            <span>Server Verified</span>
+            <span>ADVERTISEMENT</span>
           </div>
 
           {providerStatus.available ? (
@@ -120,7 +132,7 @@ export const RewardedVideoCard: React.FC<RewardedVideoCardProps> = ({ onStartVid
               disabled={loading}
               className="min-h-[44px] px-5 py-2.5 rounded-xl bg-[#6C2BD9] hover:bg-[#5821B0] active:scale-[0.98] text-white text-xs sm:text-sm font-extrabold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer touch-manipulation select-none disabled:opacity-50"
             >
-              <span>Watch Video</span>
+              <span>Watch Ads</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           ) : (

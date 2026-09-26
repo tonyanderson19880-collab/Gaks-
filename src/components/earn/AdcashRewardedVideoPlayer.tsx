@@ -43,8 +43,8 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
   useEffect(() => {
     let isMounted = true;
     if (!opportunityId) {
-      setErrorMessage('No reward opportunity specified.');
-      setStep('error');
+      // Allow proceeding even without opportunityId for direct ad display
+      setStep('ready_to_play');
       return;
     }
 
@@ -58,8 +58,9 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
       })
       .catch((err) => {
         if (isMounted) {
-          setErrorMessage(err.message || 'Failed to start rewarded video session.');
-          setStep('error');
+          console.warn('Notice: Session initialization failed, proceeding with direct ad playback:', err);
+          // Still allow playing the ad even if the reward session fails to start
+          setStep('ready_to_play');
         }
       });
 
@@ -81,8 +82,8 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
     script.async = true;
     script.onload = () => setImaLoaded(true);
     script.onerror = () => {
-      // Even if IMA SDK fails to load, allow player fallback or display graceful state
-      setImaLoaded(true);
+      console.error('Failed to load Google IMA SDK');
+      setStep('error');
     };
     document.body.appendChild(script);
   }, []);
@@ -96,7 +97,7 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
     videoElement.id = 'my-video';
     videoElement.className = 'video-js vjs-default-skin vjs-big-play-centered w-full h-full object-cover';
     videoElement.playsInline = true;
-    videoElement.muted = false;
+    videoElement.muted = true; // Use muted by default for reliable autoplay
 
     // Clear container and append video element
     if (videoRef.current) {
@@ -104,17 +105,20 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
       videoRef.current.appendChild(videoElement);
     }
 
-    const adTagUrl = sessionData?.metadata?.adTagUrl || 'https://youradexchange.com/video/select.php?r=12225346';
+    // EXACT VAST URL requested by user
+    const adTagUrl = 'https://youradexchange.com/video/select.php?r=12225346';
 
     const player = videojs(videoElement, {
       autoplay: true,
+      muted: true, // Use muted for autoplay reliability
       controls: true,
       responsive: true,
       fluid: true,
       aspectRatio: '16:9',
       sources: [
         {
-          src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+          // Reliable content video for IMA initialization
+          src: 'https://vjs.zencdn.net/v/oceans.mp4',
           type: 'video/mp4',
         },
       ],
@@ -144,6 +148,21 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
       }
     });
 
+    // Handle ad errors
+    player.on('adserror', (event: any) => {
+      console.warn('IMA Ad Error:', event);
+      setErrorMessage('No advertisement available right now. Please try again later.');
+      setStep('error');
+    });
+
+    // Handle general player errors (like MEDIA_ERR_SRC_NOT_SUPPORTED)
+    player.on('error', () => {
+      const error = player.error();
+      console.error('Video.js Player Error:', error);
+      setErrorMessage('The video could not be loaded. Please check your connection or try a different browser.');
+      setStep('error');
+    });
+
     player.on('ended', () => {
       handleVideoCompletion();
     });
@@ -165,7 +184,6 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
   };
 
   const handleVideoCompletion = async () => {
-    if (!sessionData) return;
     setStep('completed');
   };
 
