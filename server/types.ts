@@ -71,6 +71,7 @@ export interface RewardSession {
   expires_at: string;
   claimed: boolean;
   expected_amount?: number;
+  metadata?: Record<string, any>;
 }
 
 export interface RewardEvent {

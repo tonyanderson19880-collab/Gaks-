@@ -370,6 +370,54 @@ export const api = {
     });
   },
 
+  // Rewarded Video Provider Architecture Endpoints
+  getRewardedVideoStatus: () =>
+    request<{ available: boolean; providerName: string | null; isDemo: boolean }>(
+      '/api/rewards/video/provider-status'
+    ),
+
+  startRewardedVideoSession: (opportunityId: string) =>
+    request<{
+      sessionId: string;
+      providerSessionId: string;
+      providerName: string;
+      userId: string;
+      opportunityId: string;
+      rewardAmount: number;
+      currency: string;
+      status: string;
+      startedAt: string;
+      expiresAt: string;
+      token: string;
+      metadata?: Record<string, any>;
+    }>('/api/rewards/video/sessions/start', {
+      method: 'POST',
+      body: JSON.stringify({ opportunityId }),
+    }),
+
+  verifyRewardedVideoCompletion: (sessionId: string, params: {
+    providerTransactionId?: string;
+    idempotencyKey?: string;
+    elapsedSeconds?: number;
+  }) =>
+    request<{
+      success: boolean;
+      sessionId: string;
+      providerTransactionId: string;
+      providerName: string;
+      userId: string;
+      rewardAmount: number;
+      currency: string;
+      status: string;
+      newBalance?: number;
+      transactionReference?: string;
+      alreadyProcessed?: boolean;
+      message?: string;
+    }>(`/api/rewards/video/sessions/${sessionId}/verify`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    }),
+
   // Paystack Bank & Account Resolution
   getPaystackStatus: () =>
     request<{ configured: boolean; provider: string; isDemo: boolean; modeText: string }>('/api/paystack/status'),

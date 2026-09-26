@@ -14,6 +14,8 @@ import {
   isPaystackConfigured,
   realPaymentProvider,
 } from './server/paymentProviders/index.js';
+import { rewardedVideoService } from './server/rewards/RewardedVideoService.js';
+import { runRewardedVideoSuite } from './server/rewards/tests/rewardedVideoTests.js';
 
 async function startServer() {
   const app = express();
@@ -469,6 +471,108 @@ async function startServer() {
       res.json({ counts });
     } catch (err: any) {
       res.status(400).json({ error: err.message || 'Failed to fetch daily counts' });
+    }
+  });
+
+  // ----------------------------------------------------
+  // Rewarded Video Provider Architecture Endpoints
+  // ----------------------------------------------------
+  app.get('/api/rewards/video/provider-status', (req, res) => {
+    const isAvailable = rewardedVideoService.isAvailable();
+    const provider = rewardedVideoService.getProvider();
+    res.json({
+      available: isAvailable,
+      providerName: isAvailable && provider ? provider.providerName : null,
+      isDemo: Boolean(provider?.isDemo),
+    });
+  });
+
+  app.post('/api/rewards/video/sessions/start', requireUserAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { opportunityId } = req.body;
+      const userId = req.user!.id;
+
+      if (!opportunityId) {
+        return res.status(400).json({ error: 'opportunityId is required' });
+      }
+
+      const sessionResult = await rewardedVideoService.startSession({
+        userId,
+        opportunityId,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+
+      res.json(sessionResult);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to start rewarded video session.' });
+    }
+  });
+
+  app.post('/api/rewards/video/sessions/:id/verify', requireUserAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const sessionId = req.params.id;
+      const userId = req.user!.id;
+      const { providerTransactionId, idempotencyKey, elapsedSeconds } = req.body;
+
+      const verificationResult = await rewardedVideoService.verifyCompletion({
+        sessionId,
+        userId,
+        providerTransactionId,
+        idempotencyKey,
+        elapsedSeconds,
+      });
+
+      res.json(verificationResult);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to verify rewarded video completion.' });
+    }
+  });
+
+  // Server-to-server callback / webhook from certified ad network
+  app.post('/api/rewards/video/callback', async (req, res) => {
+    try {
+      const {
+        providerName,
+        providerTransactionId,
+        sessionId,
+        userId,
+        rewardAmount,
+        currency,
+        signature,
+        timestamp,
+      } = req.body;
+
+      if (!sessionId || !userId || !providerTransactionId) {
+        return res.status(400).json({ error: 'Missing required callback parameters.' });
+      }
+
+      const result = await rewardedVideoService.processCallback({
+        providerName: providerName || 'demo_rewarded_video',
+        providerTransactionId,
+        sessionId,
+        userId,
+        rewardAmount,
+        currency,
+        signature,
+        timestamp,
+        rawPayload: req.body,
+        ipAddress: req.ip,
+      });
+
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Callback verification failed.' });
+    }
+  });
+
+  // Diagnostic Test Runner for Rewarded Video Architecture
+  app.get('/api/rewards/video/run-tests', async (_req, res) => {
+    try {
+      const suiteResults = await runRewardedVideoSuite();
+      res.json(suiteResults);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Test suite execution failed.' });
     }
   });
 

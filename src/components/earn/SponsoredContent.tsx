@@ -5,6 +5,7 @@ import { AdsterraBanner160x300 } from '../common/AdsterraBanner160x300';
 import { AdsterraNativeBanner } from '../common/AdsterraNativeBanner';
 import { AdsterraSocialBar } from '../common/AdsterraSocialBar';
 import { AdsterraPopunder } from '../common/AdsterraPopunder';
+import { AdcashAutotag } from '../common/AdcashAutotag';
 
 /**
  * SponsoredContent Component
@@ -112,6 +113,11 @@ export const SponsoredContent: React.FC = () => {
 
       <div className="w-full flex justify-center">
         <AdsterraPopunder />
+      </div>
+
+      {/* Automated Monetization Tag Zone (Direct Global Loader) */}
+      <div className="w-full flex justify-center">
+        <AdcashAutotag />
       </div>
     </section>
   );

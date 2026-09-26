@@ -1,6 +1,7 @@
 import React from 'react';
 import { RewardOpportunity } from '../../types';
 import { RewardOpportunityCard } from './RewardOpportunityCard';
+import { RewardedVideoCard } from './RewardedVideoCard';
 import { EarnEmptyState } from './EarnEmptyState';
 import { EarnLoadingState } from './EarnLoadingState';
 import { EarnErrorState } from './EarnErrorState';
@@ -44,6 +45,7 @@ export const RewardOpportunityList: React.FC<RewardOpportunityListProps> = ({
 
       {!loading && !error && opportunities.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <RewardedVideoCard />
           {opportunities.map((opp) => (
             <RewardOpportunityCard
               key={opp.id}
