@@ -5,6 +5,7 @@ import { AdsterraBanner } from '../components/common/AdsterraBanner';
 import { AdsterraBanner160x300 } from '../components/common/AdsterraBanner160x300';
 import { AdsterraNativeBanner } from '../components/common/AdsterraNativeBanner';
 import { AdsterraSocialBar } from '../components/common/AdsterraSocialBar';
+import { AdsterraPopunder } from '../components/common/AdsterraPopunder';
 
 interface EarnPageProps {
   onRefreshWallet?: () => void;
@@ -24,14 +25,6 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onNavigate 
 
   // Structured upcoming Adsterra format placements (prepared for step-by-step rollout)
   const upcomingAdsterraFormats = [
-    {
-      id: 'format_popunder',
-      name: 'Popunder',
-      type: 'On-Click Media',
-      description: 'Full-tab sponsor destination trigger behind active session browsing.',
-      status: 'Prepared for Activation',
-      provider: 'Adsterra',
-    },
     {
       id: 'format_smartlink',
       name: 'Direct Smartlink',
@@ -146,6 +139,11 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onNavigate 
           {/* Active Ad Placement: Social Bar (Interactive Overlay & Rich Media) */}
           <div className="w-full flex justify-center">
             <AdsterraSocialBar />
+          </div>
+
+          {/* Active Ad Placement: Popunder (On-Click / User-Initiated Event Format) */}
+          <div className="w-full flex justify-center">
+            <AdsterraPopunder />
           </div>
         </div>
 
