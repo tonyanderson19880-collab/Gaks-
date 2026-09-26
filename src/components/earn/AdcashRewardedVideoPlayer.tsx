@@ -104,7 +104,7 @@ export const AdcashRewardedVideoPlayer: React.FC<AdcashRewardedVideoPlayerProps>
       videoRef.current.appendChild(videoElement);
     }
 
-    const adTagUrl = sessionData?.metadata?.adTagUrl || 'https://youradexchange.com/video/select.php?r=12224982';
+    const adTagUrl = sessionData?.metadata?.adTagUrl || 'https://youradexchange.com/video/select.php?r=12225346';
 
     const player = videojs(videoElement, {
       autoplay: true,
