@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { AdsterraBanner } from '../components/common/AdsterraBanner';
 import { AdsterraBanner160x300 } from '../components/common/AdsterraBanner160x300';
 import { AdsterraNativeBanner } from '../components/common/AdsterraNativeBanner';
+import { AdsterraSocialBar } from '../components/common/AdsterraSocialBar';
 
 interface EarnPageProps {
   onRefreshWallet?: () => void;
@@ -23,14 +24,6 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onNavigate 
 
   // Structured upcoming Adsterra format placements (prepared for step-by-step rollout)
   const upcomingAdsterraFormats = [
-    {
-      id: 'format_social',
-      name: 'Social Bar',
-      type: 'Rich Media',
-      description: 'Non-intrusive interactive tab notification format with high mobile engagement.',
-      status: 'Prepared for Activation',
-      provider: 'Adsterra',
-    },
     {
       id: 'format_popunder',
       name: 'Popunder',
@@ -126,7 +119,7 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onNavigate 
                 </h2>
               </div>
               <p className="text-xs text-zinc-500 mt-0.5">
-                Live Adsterra display &amp; native partner banners running on Swift Earn (300 × 250, 160 × 300 &amp; Responsive Native)
+                Live Adsterra display, native &amp; interactive overlay units running on Swift Earn (300 × 250, 160 × 300, Native &amp; Social Bar)
               </p>
             </div>
             <span className="text-[11px] font-mono text-zinc-400">
@@ -148,6 +141,11 @@ export const EarnPage: React.FC<EarnPageProps> = ({ onRefreshWallet, onNavigate 
           {/* Active Ad Placement: Responsive Native Banner in its own clean responsive row below them */}
           <div className="w-full flex justify-center">
             <AdsterraNativeBanner />
+          </div>
+
+          {/* Active Ad Placement: Social Bar (Interactive Overlay & Rich Media) */}
+          <div className="w-full flex justify-center">
+            <AdsterraSocialBar />
           </div>
         </div>
 
